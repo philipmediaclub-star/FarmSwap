@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import PhotoUploader from "@/components/PhotoUploader";
+import { geocodeLocation } from "@/lib/geocode";
 
 const categories = ["Traktor", "Jordbruksutstyr", "Tilhenger", "Skurtresker", "Redskap", "Annet"];
 const conditions = ["Ny", "Som ny", "Godt brukt", "Brukt"];
@@ -30,6 +31,8 @@ export default function SellForm({ userId }: { userId: string }) {
     setError(null);
 
     const supabase = createClient();
+    const coords = await geocodeLocation(location);
+
     const { data, error: insertError } = await supabase
       .from("listings")
       .insert({
@@ -42,6 +45,8 @@ export default function SellForm({ userId }: { userId: string }) {
         year: year ? Number(year) : null,
         hours: hours ? Number(hours) : null,
         location,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
         image_urls: photos,
       })
       .select()

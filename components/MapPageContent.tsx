@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/i18n";
-import { fetchListings } from "@/lib/data/listings";
-import { fetchRentals } from "@/lib/data/rentals";
+import { createClient } from "@/lib/supabase/client";
+import { featuredListings } from "@/data/listings";
+import { rentalListings } from "@/data/rentals";
 import { approximateLocation } from "@/lib/geo";
 import MapView, { type MapPin } from "./MapView";
 
@@ -16,37 +17,88 @@ export default function MapPageContent() {
   const [pins, setPins] = useState<MapPin[]>([]);
 
   useEffect(() => {
-    Promise.all([fetchListings(), fetchRentals()]).then(([listingsRes, rentalsRes]) => {
-      const listingPins: MapPin[] = listingsRes.listings.map((l) => {
-        const { lat, lng } = approximateLocation(l.location, l.id);
-        return {
-          id: `sell-${l.id}`,
-          title: l.title,
-          type: "sell",
-          priceLabel: formatNOK(l.price),
-          location: l.location,
-          lat,
-          lng,
-          href: `/kjop-og-selg/${l.id}`,
-        };
-      });
+    const supabase = createClient();
 
-      const rentalPins: MapPin[] = rentalsRes.rentals.map((r) => {
-        const { lat, lng } = approximateLocation(r.location, r.id);
-        return {
-          id: `rent-${r.id}`,
-          title: r.title,
-          type: "rent",
-          priceLabel: `${formatNOK(r.dailyPrice)}/dag`,
-          location: r.location,
-          lat,
-          lng,
-          href: `/lei/${r.id}`,
-        };
-      });
+    async function load() {
+      const [{ data: listingRows }, { data: rentalRows }] = await Promise.all([
+        supabase
+          .from("listings")
+          .select("id, title, price, location, latitude, longitude")
+          .eq("status", "active"),
+        supabase
+          .from("rentals")
+          .select("id, title, daily_price, location, latitude, longitude")
+          .eq("status", "active"),
+      ]);
+
+      const hasLive = (listingRows && listingRows.length > 0) || (rentalRows && rentalRows.length > 0);
+
+      const listingPins: MapPin[] = hasLive
+        ? (listingRows ?? []).map((l) => {
+            const coords =
+              l.latitude && l.longitude
+                ? { lat: Number(l.latitude), lng: Number(l.longitude) }
+                : approximateLocation(l.location, l.id);
+            return {
+              id: `sell-${l.id}`,
+              title: l.title,
+              type: "sell" as const,
+              priceLabel: formatNOK(Number(l.price)),
+              location: l.location,
+              lat: coords.lat,
+              lng: coords.lng,
+              href: `/kjop-og-selg/${l.id}`,
+            };
+          })
+        : featuredListings.map((l) => {
+            const coords = approximateLocation(l.location, l.id);
+            return {
+              id: `sell-${l.id}`,
+              title: l.title,
+              type: "sell" as const,
+              priceLabel: formatNOK(l.price),
+              location: l.location,
+              lat: coords.lat,
+              lng: coords.lng,
+              href: `/kjop-og-selg/${l.id}`,
+            };
+          });
+
+      const rentalPins: MapPin[] = hasLive
+        ? (rentalRows ?? []).map((r) => {
+            const coords =
+              r.latitude && r.longitude
+                ? { lat: Number(r.latitude), lng: Number(r.longitude) }
+                : approximateLocation(r.location, r.id);
+            return {
+              id: `rent-${r.id}`,
+              title: r.title,
+              type: "rent" as const,
+              priceLabel: `${formatNOK(Number(r.daily_price))}/dag`,
+              location: r.location,
+              lat: coords.lat,
+              lng: coords.lng,
+              href: `/lei/${r.id}`,
+            };
+          })
+        : rentalListings.map((r) => {
+            const coords = approximateLocation(r.location, r.id);
+            return {
+              id: `rent-${r.id}`,
+              title: r.title,
+              type: "rent" as const,
+              priceLabel: `${formatNOK(r.dailyPrice)}/dag`,
+              location: r.location,
+              lat: coords.lat,
+              lng: coords.lng,
+              href: `/lei/${r.id}`,
+            };
+          });
 
       setPins([...listingPins, ...rentalPins]);
-    });
+    }
+
+    load();
   }, []);
 
   return (

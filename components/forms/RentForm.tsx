@@ -6,6 +6,7 @@ import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import PhotoUploader from "@/components/PhotoUploader";
 import { TextField, TextAreaField, SelectField } from "./SellForm";
+import { geocodeLocation } from "@/lib/geocode";
 
 const categories = ["Redskap", "Såmaskin", "Tilhenger", "Vintervedlikehold", "Annet"];
 
@@ -29,6 +30,8 @@ export default function RentForm({ userId }: { userId: string }) {
     setError(null);
 
     const supabase = createClient();
+    const coords = await geocodeLocation(location);
+
     const { data, error: insertError } = await supabase
       .from("rentals")
       .insert({
@@ -40,6 +43,8 @@ export default function RentForm({ userId }: { userId: string }) {
         category,
         conditions,
         location,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
         image_urls: photos,
       })
       .select()
