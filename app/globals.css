@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+:root {
+  /* Åkerbrun — deep warm charcoal-brown, primary text */
+  --color-ink: #2b2620;
+  /* Havre — warm paper/oat background, not the AI-cliché cream */
+  --color-paper: #eee8d9;
+  --color-paper-dim: #e4ddc9;
+  /* Beite grønn — deep olive green, primary accent */
+  --color-moss: #435e3a;
+  --color-moss-dark: #324429;
+  /* Lyng — pale sage, card/section backgrounds */
+  --color-sage: #dde3d0;
+  /* Låve rød — barn red, used sparingly for highlights only */
+  --color-barn: #a34a34;
+  /* Stål — steel grey, borders and muted text */
+  --color-steel: #8b8478;
+  --color-steel-light: #d8d2c2;
+  --color-cream-card: #f7f4ea;
+}
+
+@theme inline {
+  --color-ink: var(--color-ink);
+  --color-paper: var(--color-paper);
+  --color-paper-dim: var(--color-paper-dim);
+  --color-moss: var(--color-moss);
+  --color-moss-dark: var(--color-moss-dark);
+  --color-sage: var(--color-sage);
+  --color-barn: var(--color-barn);
+  --color-steel: var(--color-steel);
+  --color-steel-light: var(--color-steel-light);
+  --color-cream-card: var(--color-cream-card);
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-tag: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--color-moss);
+  color: var(--color-paper);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-moss);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Furrow line — the signature repeating "ploughed row" motif used as a
+   section divider throughout the site instead of a plain hairline. */
+.furrow-divider {
+  height: 10px;
+  width: 100%;
+  background-image: repeating-linear-gradient(
+    100deg,
+    var(--color-moss) 0px,
+    var(--color-moss) 2px,
+    transparent 2px,
+    transparent 22px
+  );
+  opacity: 0.35;
+}
+
+.furrow-bg {
+  background-image: repeating-linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--color-ink) 6%, transparent) 0px,
+    color-mix(in srgb, var(--color-ink) 6%, transparent) 1.5px,
+    transparent 1.5px,
+    transparent 34px
+  );
+}
