@@ -6,8 +6,6 @@ import { Lock, Heart } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { fetchFavorites, type FavoriteItem } from "@/lib/data/favorites";
-import ListingCard from "./ListingCard";
-import RentalCard from "./RentalCard";
 import type { Listing } from "@/data/listings";
 import type { RentalListing } from "@/data/rentals";
 
@@ -41,8 +39,8 @@ export default function DashboardContent() {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [rentals, setRentals] = useState<RentalListing[]>([]);
+  const [listings, setListings] = useState<(Listing & { status: string })[]>([]);
+  const [rentals, setRentals] = useState<(RentalListing & { status: string })[]>([]);
   const [myRequests, setMyRequests] = useState<ReservationRow[]>([]);
   const [incoming, setIncoming] = useState<ReservationRow[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
@@ -53,8 +51,8 @@ export default function DashboardContent() {
 
     const [{ data: listingRows }, { data: rentalRows }, { data: myReqRows }, { data: incomingRows }, favs] =
       await Promise.all([
-        supabase.from("listings").select("*").eq("seller_id", uid).eq("status", "active"),
-        supabase.from("rentals").select("*").eq("owner_id", uid).eq("status", "active"),
+        supabase.from("listings").select("*").eq("seller_id", uid),
+        supabase.from("rentals").select("*").eq("owner_id", uid),
         supabase
           .from("reservations")
           .select("*, rentals(id, title)")
@@ -83,6 +81,7 @@ export default function DashboardContent() {
         imageQuery: l.title,
         imageUrls: l.image_urls ?? [],
         sellerName: "",
+        status: l.status as string,
       }))
     );
 
@@ -101,6 +100,7 @@ export default function DashboardContent() {
         imageQuery: r.title,
         imageUrls: r.image_urls ?? [],
         unavailableDates: [],
+        status: r.status as string,
       }))
     );
 
@@ -186,6 +186,20 @@ export default function DashboardContent() {
     setIncoming((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
   }
 
+  async function updateListingStatus(id: string, status: "active" | "sold" | "removed") {
+    if (status === "removed" && !confirm("Er du sikker på at du vil fjerne denne annonsen?")) return;
+    const supabase = createClient();
+    await supabase.from("listings").update({ status }).eq("id", id);
+    setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+  }
+
+  async function updateRentalStatus(id: string, status: "active" | "paused" | "removed") {
+    if (status === "removed" && !confirm("Er du sikker på at du vil fjerne denne annonsen?")) return;
+    const supabase = createClient();
+    await supabase.from("rentals").update({ status }).eq("id", id);
+    setRentals((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  }
+
   if (loading || userId === undefined) {
     return <div className="mx-auto max-w-3xl px-4 py-20 text-center text-ink/50">…</div>;
   }
@@ -218,8 +232,8 @@ export default function DashboardContent() {
       </h1>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard value={listings.length} label={t("dashboard_stat_listings")} />
-        <StatCard value={rentals.length} label={t("dashboard_stat_rentals")} />
+        <StatCard value={listings.filter((l) => l.status === "active").length} label={t("dashboard_stat_listings")} />
+        <StatCard value={rentals.filter((r) => r.status === "active").length} label={t("dashboard_stat_rentals")} />
         <StatCard value={pendingIncoming} label={t("dashboard_stat_incoming")} />
         <StatCard value={favorites.length} label={t("dashboard_stat_favorites")} />
       </div>
@@ -325,9 +339,48 @@ export default function DashboardContent() {
         {listings.length === 0 ? (
           <p className="text-sm text-ink/50">{t("dashboard_no_listings")}</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="flex flex-col gap-2">
             {listings.map((l) => (
-              <ListingCard key={l.id} listing={l} />
+              <div
+                key={l.id}
+                className="bg-cream-card border border-steel-light rounded-lg px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap"
+              >
+                <div className="min-w-0">
+                  <Link href={`/kjop-og-selg/${l.id}`} className="text-sm font-medium text-ink hover:text-moss-dark truncate">
+                    {l.title}
+                  </Link>
+                  <p className="text-xs text-ink/55 mt-0.5">
+                    {new Intl.NumberFormat("nb-NO").format(l.price)} kr
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <ItemStatusBadge status={l.status} labels={listingStatusLabels(t)} />
+                  {l.status === "active" && (
+                    <button
+                      onClick={() => updateListingStatus(l.id, "sold")}
+                      className="text-xs font-semibold bg-moss text-paper px-3 py-1.5 rounded-md hover:bg-moss-dark transition-colors"
+                    >
+                      {t("dashboard_mark_sold")}
+                    </button>
+                  )}
+                  {l.status === "sold" && (
+                    <button
+                      onClick={() => updateListingStatus(l.id, "active")}
+                      className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                    >
+                      {t("dashboard_reactivate")}
+                    </button>
+                  )}
+                  {l.status !== "removed" && (
+                    <button
+                      onClick={() => updateListingStatus(l.id, "removed")}
+                      className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+                    >
+                      {t("dashboard_remove_listing")}
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -337,9 +390,48 @@ export default function DashboardContent() {
         {rentals.length === 0 ? (
           <p className="text-sm text-ink/50">{t("dashboard_no_rentals")}</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="flex flex-col gap-2">
             {rentals.map((r) => (
-              <RentalCard key={r.id} listing={r} />
+              <div
+                key={r.id}
+                className="bg-cream-card border border-steel-light rounded-lg px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap"
+              >
+                <div className="min-w-0">
+                  <Link href={`/lei/${r.id}`} className="text-sm font-medium text-ink hover:text-moss-dark truncate">
+                    {r.title}
+                  </Link>
+                  <p className="text-xs text-ink/55 mt-0.5">
+                    {new Intl.NumberFormat("nb-NO").format(r.dailyPrice)} kr/dag
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <ItemStatusBadge status={r.status} labels={rentalStatusLabels(t)} />
+                  {r.status === "active" && (
+                    <button
+                      onClick={() => updateRentalStatus(r.id, "paused")}
+                      className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                    >
+                      {t("dashboard_pause_rental")}
+                    </button>
+                  )}
+                  {r.status === "paused" && (
+                    <button
+                      onClick={() => updateRentalStatus(r.id, "active")}
+                      className="text-xs font-semibold bg-moss text-paper px-3 py-1.5 rounded-md hover:bg-moss-dark transition-colors"
+                    >
+                      {t("dashboard_resume_rental")}
+                    </button>
+                  )}
+                  {r.status !== "removed" && (
+                    <button
+                      onClick={() => updateRentalStatus(r.id, "removed")}
+                      className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+                    >
+                      {t("dashboard_remove_listing")}
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -390,6 +482,36 @@ export default function DashboardContent() {
         </div>
       </Section>
     </div>
+  );
+}
+
+function listingStatusLabels(t: (k: never) => string) {
+  return {
+    active: t("dashboard_status_active" as never),
+    sold: t("dashboard_status_sold" as never),
+    removed: t("dashboard_status_removed_item" as never),
+  };
+}
+
+function rentalStatusLabels(t: (k: never) => string) {
+  return {
+    active: t("dashboard_status_active" as never),
+    paused: t("dashboard_status_paused" as never),
+    removed: t("dashboard_status_removed_item" as never),
+  };
+}
+
+function ItemStatusBadge({ status, labels }: { status: string; labels: Record<string, string> }) {
+  const colors: Record<string, string> = {
+    active: "bg-sage/60 text-moss-dark",
+    sold: "bg-steel-light/60 text-ink/60",
+    paused: "bg-steel-light/60 text-ink/60",
+    removed: "bg-barn/10 text-barn",
+  };
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors[status] ?? ""}`}>
+      {labels[status] ?? status}
+    </span>
   );
 }
 
