@@ -6,5 +6,5 @@
  * Leave it null to keep the illustrated placeholder background.
  */
 export const siteConfig = {
-  heroImage: null as string | null,
+  heroImage:"/images/background.jpg",
 };
