@@ -70,6 +70,10 @@ export default function LoginPage() {
               />
             </label>
 
+            <Link href="/glemt-passord" className="text-sm text-moss-dark hover:underline -mt-2 self-start">
+              {t("auth_forgot")}
+            </Link>
+
             {error && <p className="text-sm text-barn">{error}</p>}
 
             <button

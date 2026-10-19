@@ -142,7 +142,18 @@ export default function AdminContent() {
 
   async function removeItem(table: ItemRow["table"], id: string) {
     const supabase = createClient();
-    await supabase.from(table).update({ status: "removed" }).eq("id", id);
+    const { data, error } = await supabase
+      .from(table)
+      .update({ status: "removed" })
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      // Zero rows updated means Row Level Security blocked it (admin policy missing).
+      alert(
+        `Kunne ikke fjerne (${table}): ${error?.message ?? "ingen rader oppdatert – mangler admin-policy i Supabase (kjør supabase/migrations/005_admin_fix.sql)"}`
+      );
+      return;
+    }
     setItems((prev) => prev.map((i) => (i.id === id && i.table === table ? { ...i, status: "removed" } : i)));
   }
 
