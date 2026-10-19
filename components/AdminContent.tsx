@@ -22,8 +22,24 @@ type ItemRow = {
   id: string;
   title: string;
   status: string;
+  owner_id: string | null;
+  created_at: string | null;
   table: "listings" | "rentals" | "services" | "jobs";
 };
+
+const OWNER_COLUMN = {
+  listings: "seller_id",
+  rentals: "owner_id",
+  services: "provider_id",
+  jobs: "poster_id",
+} as const;
+
+const TABLE_LABEL = {
+  listings: "Kjøp & Salg",
+  rentals: "Lei",
+  services: "Tjenester",
+  jobs: "Jobb",
+} as const;
 
 type ReportRow = {
   id: string;
@@ -84,10 +100,10 @@ export default function AdminContent() {
       const [{ data: userRows }, { data: listingRows }, { data: rentalRows }, { data: serviceRows }, { data: jobRows }, { data: reportRows }] =
         await Promise.all([
           supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-          supabase.from("listings").select("id, title, status, view_count").order("created_at", { ascending: false }),
-          supabase.from("rentals").select("id, title, status, view_count").order("created_at", { ascending: false }),
-          supabase.from("services").select("id, title, status, view_count").order("created_at", { ascending: false }),
-          supabase.from("jobs").select("id, title, status, view_count").order("created_at", { ascending: false }),
+          supabase.from("listings").select("*").order("created_at", { ascending: false }),
+          supabase.from("rentals").select("*").order("created_at", { ascending: false }),
+          supabase.from("services").select("*").order("created_at", { ascending: false }),
+          supabase.from("jobs").select("*").order("created_at", { ascending: false }),
           supabase
             .from("reports")
             .select("*, reporter:profiles!reports_reporter_id_fkey(full_name)")
@@ -95,12 +111,22 @@ export default function AdminContent() {
         ]);
 
       setUsers(userRows ?? []);
-      setItems([
-        ...(listingRows ?? []).map((r) => ({ ...r, table: "listings" as const })),
-        ...(rentalRows ?? []).map((r) => ({ ...r, table: "rentals" as const })),
-        ...(serviceRows ?? []).map((r) => ({ ...r, table: "services" as const })),
-        ...(jobRows ?? []).map((r) => ({ ...r, table: "jobs" as const })),
-      ]);
+      const toItem = (r: Record<string, any>, table: ItemRow["table"]): ItemRow => ({
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        owner_id: r[OWNER_COLUMN[table]] ?? null,
+        created_at: r.created_at ?? null,
+        table,
+      });
+      setItems(
+        [
+          ...(listingRows ?? []).map((r) => toItem(r, "listings")),
+          ...(rentalRows ?? []).map((r) => toItem(r, "rentals")),
+          ...(serviceRows ?? []).map((r) => toItem(r, "services")),
+          ...(jobRows ?? []).map((r) => toItem(r, "jobs")),
+        ].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+      );
       setReports((reportRows as unknown as ReportRow[]) ?? []);
 
       const [{ count: favCount }, { count: msgCount }, { data: reservationRows }] = await Promise.all([
@@ -155,6 +181,19 @@ export default function AdminContent() {
       return;
     }
     setItems((prev) => prev.map((i) => (i.id === id && i.table === table ? { ...i, status: "removed" } : i)));
+  }
+
+  async function deleteItem(table: ItemRow["table"], id: string, title: string) {
+    if (!window.confirm(`Slette "${title}" permanent? Dette kan ikke angres.`)) return;
+    const supabase = createClient();
+    const { data, error } = await supabase.from(table).delete().eq("id", id).select("id");
+    if (error || !data || data.length === 0) {
+      alert(
+        `Kunne ikke slette (${table}): ${error?.message ?? "ingen rader slettet – kjør supabase/migrations/006_admin_delete.sql"}`
+      );
+      return;
+    }
+    setItems((prev) => prev.filter((i) => !(i.id === id && i.table === table)));
   }
 
   async function updateReport(id: string, status: "reviewed" | "dismissed") {
@@ -311,29 +350,43 @@ export default function AdminContent() {
         {tab === "listings" && (
           <div className="flex flex-col gap-2">
             {items.length === 0 && <p className="text-sm text-ink/50">{t("admin_no_listings")}</p>}
-            {items.map((i) => (
-              <div
-                key={`${i.table}-${i.id}`}
-                className="bg-cream-card border border-steel-light rounded-lg px-4 py-3 flex items-center justify-between gap-3"
-              >
-                <div>
-                  <p className="text-sm font-medium text-ink">{i.title}</p>
-                  <p className="text-xs text-ink/50">{i.table}</p>
+            {items.map((i) => {
+              const owner = users.find((u) => u.id === i.owner_id);
+              return (
+                <div
+                  key={`${i.table}-${i.id}`}
+                  className="bg-cream-card border border-steel-light rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{i.title}</p>
+                    <p className="text-xs text-ink/50">
+                      {TABLE_LABEL[i.table]} · {owner?.full_name ?? "Ukjent bruker"}
+                      {i.status !== "active" ? ` · ${i.status}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {i.status === "removed" ? (
+                      <span className="text-xs font-semibold bg-barn/10 text-barn px-2.5 py-1 rounded-full">
+                        {t("admin_removed_label")}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => removeItem(i.table, i.id)}
+                        className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                      >
+                        {t("admin_remove_button")}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteItem(i.table, i.id, i.title)}
+                      className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+                    >
+                      Slett
+                    </button>
+                  </div>
                 </div>
-                {i.status === "removed" ? (
-                  <span className="text-xs font-semibold bg-barn/10 text-barn px-2.5 py-1 rounded-full">
-                    {t("admin_removed_label")}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => removeItem(i.table, i.id)}
-                    className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
-                  >
-                    {t("admin_remove_button")}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
