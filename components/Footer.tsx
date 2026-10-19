@@ -11,10 +11,8 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col sm:flex-row justify-between gap-6">
           <div>
-            <div className="flex items-baseline gap-0.5">
-              <span className="font-display text-xl font-bold text-ink">Farm</span>
-              <span className="font-display text-xl font-bold text-moss">Swap</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="FarmSwap" className="h-16 w-auto" />
             <p className="mt-2 text-sm text-ink/60 max-w-xs">{t("footer_tagline")}</p>
           </div>
           <div className="flex gap-8 text-sm">

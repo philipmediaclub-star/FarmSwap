@@ -38,11 +38,6 @@ export default function BuySellResults({ initialQuery }: { initialQuery: string 
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">
           {t("buysell_page_title")}
         </h1>
-        {!loading && !isLive && (
-          <span className="text-xs font-tag uppercase tracking-wide text-steel border border-steel-light rounded-full px-2.5 py-1">
-            {t("demo_data_badge")}
-          </span>
-        )}
       </div>
 
       <label className="mt-6 flex items-center gap-3 px-4 py-3 rounded-lg bg-cream-card border border-steel-light max-w-xl">

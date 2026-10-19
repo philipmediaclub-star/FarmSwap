@@ -26,11 +26,6 @@ export default function ServicesPageContent() {
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">
           {t("services_page_title")}
         </h1>
-        {!loading && !isLive && (
-          <span className="text-xs font-tag uppercase tracking-wide text-steel border border-steel-light rounded-full px-2.5 py-1">
-            {t("demo_data_badge")}
-          </span>
-        )}
       </div>
       <p className="mt-2 text-ink/65">{t("services_page_subtitle")}</p>
 

@@ -13,7 +13,11 @@ export default function EditProfileForm() {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [fullName, setFullName] = useState("");
   const [farmName, setFarmName] = useState("");
-  const [location, setLocation] = useState("");
+  const [street, setStreet] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [zipStatus, setZipStatus] = useState<"idle" | "ok" | "unknown">("idle");
+  const [oldLocation, setOldLocation] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,17 +42,50 @@ export default function EditProfileForm() {
       if (profile) {
         setFullName(profile.full_name ?? "");
         setFarmName(profile.farm_name ?? "");
-        setLocation(profile.location ?? "");
+        setPostalCode(profile.postal_code ?? "");
+        setCity(profile.city ?? "");
+        setZipStatus(profile.postal_code && profile.city ? "ok" : "idle");
+        setOldLocation(profile.location ?? null);
         setBio(profile.bio ?? "");
         setAvatarUrl(profile.avatar_url ?? null);
       }
+      const { data: addr } = await supabase
+        .from("profile_addresses")
+        .select("street")
+        .eq("user_id", uid)
+        .maybeSingle();
+      setStreet(addr?.street ?? "");
       setLoading(false);
     });
   }, []);
 
+  // Look the city up from the postal code as soon as 4 digits are entered.
+  async function handleZipChange(value: string) {
+    const zip = value.replace(/\D/g, "").slice(0, 4);
+    setPostalCode(zip);
+    if (zip.length < 4) {
+      setCity("");
+      setZipStatus("idle");
+      return;
+    }
+    const supabase = createClient();
+    const { data } = await supabase.from("postal_codes").select("city").eq("zip", zip).maybeSingle();
+    if (data?.city) {
+      setCity(data.city);
+      setZipStatus("ok");
+    } else {
+      setCity("");
+      setZipStatus("unknown");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!userId) return;
+    if (postalCode && zipStatus !== "ok") {
+      setError(t("profile_zip_unknown"));
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setError(null);
@@ -59,15 +96,27 @@ export default function EditProfileForm() {
       .update({
         full_name: fullName,
         farm_name: farmName || null,
-        location: location || null,
+        postal_code: postalCode || null,
+        city: city || null,
+        location: city || oldLocation,
         bio: bio || null,
         avatar_url: avatarUrl,
       })
       .eq("id", userId);
 
-    setSaving(false);
     if (updateError) {
+      setSaving(false);
       setError(updateError.message);
+      return;
+    }
+
+    const { error: addrError } = await supabase
+      .from("profile_addresses")
+      .upsert({ user_id: userId, street: street || null, updated_at: new Date().toISOString() });
+
+    setSaving(false);
+    if (addrError) {
+      setError(addrError.message);
       return;
     }
     setSaved(true);
@@ -109,7 +158,23 @@ export default function EditProfileForm() {
         <AvatarUploader userId={userId} url={avatarUrl} onChange={setAvatarUrl} />
         <TextField label={t("profile_edit_full_name")} value={fullName} onChange={setFullName} required />
         <TextField label={t("profile_edit_farm_name")} value={farmName} onChange={setFarmName} />
-        <TextField label={t("profile_edit_location")} value={location} onChange={setLocation} />
+        <TextField label={t("profile_edit_street")} value={street} onChange={setStreet} />
+        <p className="-mt-3 text-xs text-ink/50">{t("profile_street_private")}</p>
+        <div className="grid grid-cols-3 gap-4">
+          <TextField label={t("profile_edit_zip")} value={postalCode} onChange={handleZipChange} />
+          <div className="col-span-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-ink/80">{t("profile_edit_city")}</span>
+              <input
+                readOnly
+                tabIndex={-1}
+                value={city}
+                className="px-3.5 py-2.5 rounded-lg bg-sage/30 border border-steel-light text-sm text-ink/70"
+              />
+            </label>
+          </div>
+        </div>
+        {zipStatus === "unknown" && <p className="-mt-3 text-xs text-barn">{t("profile_zip_unknown")}</p>}
         <TextAreaField label={t("profile_edit_bio")} value={bio} onChange={setBio} />
 
         {error && <p className="text-sm text-barn">{error}</p>}

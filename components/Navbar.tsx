@@ -89,13 +89,9 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur border-b border-steel-light">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-baseline gap-0.5 group">
-            <span className="font-display text-2xl font-bold tracking-tight text-ink">
-              Farm
-            </span>
-            <span className="font-display text-2xl font-bold tracking-tight text-moss">
-              Swap
-            </span>
+          <Link href="/" aria-label="FarmSwap" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="FarmSwap" className="h-14 w-auto" />
           </Link>
 
           <nav className="hidden lg:flex items-center gap-1">

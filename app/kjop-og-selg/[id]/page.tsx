@@ -1,6 +1,5 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { featuredListings } from "@/data/listings";
 import { createClient } from "@/lib/supabase/server";
 import ListingDetailContent, { type FullListing } from "@/components/ListingDetailContent";
 import { notFound } from "next/navigation";
@@ -12,12 +11,9 @@ export default async function ListingDetailPage({
 }) {
   const { id } = await params;
 
-  const mock = featuredListings.find((l) => l.id === id);
-  let listing: FullListing | undefined = mock
-    ? { ...mock, description: "", imageUrls: [], sellerId: null }
-    : undefined;
+  let listing: FullListing | undefined;
 
-  if (!listing) {
+  {
     const supabase = await createClient();
     const { data } = await supabase
       .from("listings")

@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { rentalListings, type RentalListing } from "@/data/rentals";
+import type { RentalListing } from "@/data/rentals";
+import { expandRanges } from "@/lib/dates";
 import RentalDetailContent from "@/components/RentalDetailContent";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
@@ -12,16 +13,18 @@ export default async function RentalDetailPage({
 }) {
   const { id } = await params;
 
-  let listing: RentalListing | undefined = rentalListings.find((l) => l.id === id);
+  let listing: RentalListing | undefined;
   let ownerId: string | null = null;
 
-  if (!listing) {
+  {
     const supabase = await createClient();
     const { data } = await supabase
       .from("rentals")
       .select("*, profiles(full_name)")
       .eq("id", id)
       .single();
+
+    const { data: booked } = await supabase.rpc("rental_booked_dates", { p_rental: id });
 
     if (data) {
       ownerId = data.owner_id;
@@ -38,7 +41,7 @@ export default async function RentalDetailPage({
         conditions: data.conditions ?? "",
         imageQuery: data.image_urls?.[0] ?? data.title,
         imageUrls: data.image_urls ?? [],
-        unavailableDates: [],
+        unavailableDates: expandRanges((booked as { start_date: string; end_date: string }[]) ?? []),
       };
     }
   }

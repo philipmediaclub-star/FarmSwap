@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
-import { featuredListings } from "@/data/listings";
-import { rentalListings } from "@/data/rentals";
 import { approximateLocation } from "@/lib/geo";
 import MapView, { type MapPin } from "./MapView";
 
@@ -31,10 +29,7 @@ export default function MapPageContent() {
           .eq("status", "active"),
       ]);
 
-      const hasLive = (listingRows && listingRows.length > 0) || (rentalRows && rentalRows.length > 0);
-
-      const listingPins: MapPin[] = hasLive
-        ? (listingRows ?? []).map((l) => {
+      const listingPins: MapPin[] = (listingRows ?? []).map((l) => {
             const coords =
               l.latitude && l.longitude
                 ? { lat: Number(l.latitude), lng: Number(l.longitude) }
@@ -49,23 +44,9 @@ export default function MapPageContent() {
               lng: coords.lng,
               href: `/kjop-og-selg/${l.id}`,
             };
-          })
-        : featuredListings.map((l) => {
-            const coords = approximateLocation(l.location, l.id);
-            return {
-              id: `sell-${l.id}`,
-              title: l.title,
-              type: "sell" as const,
-              priceLabel: formatNOK(l.price),
-              location: l.location,
-              lat: coords.lat,
-              lng: coords.lng,
-              href: `/kjop-og-selg/${l.id}`,
-            };
           });
 
-      const rentalPins: MapPin[] = hasLive
-        ? (rentalRows ?? []).map((r) => {
+      const rentalPins: MapPin[] = (rentalRows ?? []).map((r) => {
             const coords =
               r.latitude && r.longitude
                 ? { lat: Number(r.latitude), lng: Number(r.longitude) }
@@ -75,19 +56,6 @@ export default function MapPageContent() {
               title: r.title,
               type: "rent" as const,
               priceLabel: `${formatNOK(Number(r.daily_price))}/dag`,
-              location: r.location,
-              lat: coords.lat,
-              lng: coords.lng,
-              href: `/lei/${r.id}`,
-            };
-          })
-        : rentalListings.map((r) => {
-            const coords = approximateLocation(r.location, r.id);
-            return {
-              id: `rent-${r.id}`,
-              title: r.title,
-              type: "rent" as const,
-              priceLabel: `${formatNOK(r.dailyPrice)}/dag`,
               location: r.location,
               lat: coords.lat,
               lng: coords.lng,

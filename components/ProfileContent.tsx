@@ -1,6 +1,9 @@
 "use client";
 
-import { User, ShieldCheck, Star, MapPin } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { User, ShieldCheck, Star, MapPin, Pencil } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 import ListingCard from "./ListingCard";
 import RentalCard from "./RentalCard";
@@ -46,6 +49,12 @@ export default function ProfileContent({
   reviews: Review[];
 }) {
   const { t } = useLanguage();
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setIsOwner(data.user?.id === profile.id));
+  }, [profile.id]);
   const memberSince = new Date(profile.created_at).getFullYear();
   const avgRating =
     reviews.length > 0
@@ -121,6 +130,14 @@ export default function ProfileContent({
         <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-display text-2xl font-bold text-ink">{profile.full_name}</h1>
+            {isOwner && (
+              <Link
+                href="/min-profil"
+                className="flex items-center gap-1.5 text-xs font-semibold text-moss-dark border border-moss/30 px-2.5 py-1 rounded-full hover:bg-sage/50 transition-colors"
+              >
+                <Pencil size={12} /> {t("profile_edit_button")}
+              </Link>
+            )}
             {profile.verified && (
               <span className="flex items-center gap-1 text-xs font-medium text-moss-dark bg-sage/60 px-2 py-1 rounded-full">
                 <ShieldCheck size={13} /> {t("profile_verified_badge")}

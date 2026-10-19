@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, MapPin, User } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
-import { getUnavailableForListing } from "@/lib/dates";
 import type { RentalListing } from "@/data/rentals";
 import { createClient } from "@/lib/supabase/client";
 import AvailabilityCalendar from "./AvailabilityCalendar";
@@ -67,10 +66,7 @@ export default function RentalDetailContent({
       });
   }, [listing.id, ownerId]);
 
-  const unavailable = useMemo(
-    () => [...getUnavailableForListing(listing.id), ...listing.unavailableDates],
-    [listing]
-  );
+  const unavailable = useMemo(() => listing.unavailableDates, [listing]);
 
   const dayCount = range
     ? Math.round(

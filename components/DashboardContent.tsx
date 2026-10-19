@@ -20,6 +20,8 @@ type ReservationRow = {
   requester?: { full_name: string } | null;
 };
 
+type WithHistory = { status: string; statusChangedAt?: string | null };
+
 type ItemStatRow = {
   id: string;
   type: "listing" | "rental";
@@ -31,6 +33,45 @@ type ItemStatRow = {
   ratingCount: number;
 };
 
+function formatFullDate(iso: string) {
+  return new Date(iso).toLocaleDateString("nb-NO", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function HistoryRow({
+  href,
+  title,
+  meta,
+  badge,
+  badgeClass,
+  action,
+}: {
+  href?: string;
+  title: string;
+  meta: string;
+  badge: string;
+  badgeClass: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="bg-cream-card border border-steel-light rounded-lg px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap">
+      <div className="min-w-0">
+        {href ? (
+          <Link href={href} className="text-sm font-medium text-ink hover:text-moss-dark truncate">
+            {title}
+          </Link>
+        ) : (
+          <p className="text-sm font-medium text-ink truncate">{title}</p>
+        )}
+        <p className="text-xs text-ink/55 mt-0.5">{meta}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badgeClass}`}>{badge}</span>
+        {action}
+      </div>
+    </div>
+  );
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("nb-NO", { day: "numeric", month: "short" });
 }
@@ -40,8 +81,8 @@ export default function DashboardContent() {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  const [listings, setListings] = useState<(Listing & { status: string })[]>([]);
-  const [rentals, setRentals] = useState<(RentalListing & { status: string })[]>([]);
+  const [listings, setListings] = useState<(Listing & WithHistory)[]>([]);
+  const [rentals, setRentals] = useState<(RentalListing & WithHistory)[]>([]);
   const [myRequests, setMyRequests] = useState<ReservationRow[]>([]);
   const [incoming, setIncoming] = useState<ReservationRow[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
@@ -83,6 +124,7 @@ export default function DashboardContent() {
         imageUrls: l.image_urls ?? [],
         sellerName: "",
         status: l.status as string,
+        statusChangedAt: (l.status_changed_at ?? l.created_at ?? null) as string | null,
       }))
     );
 
@@ -102,6 +144,7 @@ export default function DashboardContent() {
         imageUrls: r.image_urls ?? [],
         unavailableDates: [],
         status: r.status as string,
+        statusChangedAt: (r.status_changed_at ?? r.created_at ?? null) as string | null,
       }))
     );
 
@@ -182,23 +225,68 @@ export default function DashboardContent() {
   }, []);
 
   async function updateReservationStatus(id: string, status: "confirmed" | "declined") {
+    const target = incoming.find((r) => r.id === id);
+    if (status === "confirmed" && target) {
+      // Don't double-book: another confirmed request for the same rental must not overlap.
+      const clash = incoming.find(
+        (r) =>
+          r.id !== id &&
+          r.status === "confirmed" &&
+          r.rentals?.id === target.rentals?.id &&
+          r.start_date <= target.end_date &&
+          r.end_date >= target.start_date
+      );
+      if (clash) {
+        alert(t("dashboard_request_clash"));
+        return;
+      }
+    }
     const supabase = createClient();
-    await supabase.from("reservations").update({ status }).eq("id", id);
+    const { data, error } = await supabase
+      .from("reservations")
+      .update({ status })
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      alert(error?.message ?? t("auth_error_generic"));
+      return;
+    }
     setIncoming((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  }
+
+  async function cancelMyRequest(id: string) {
+    if (!confirm(t("dashboard_cancel_request_confirm"))) return;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      alert(error?.message ?? t("auth_error_generic"));
+      return;
+    }
+    setMyRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r)));
   }
 
   async function updateListingStatus(id: string, status: "active" | "sold" | "removed") {
     if (status === "removed" && !confirm("Er du sikker på at du vil fjerne denne annonsen?")) return;
     const supabase = createClient();
-    await supabase.from("listings").update({ status }).eq("id", id);
-    setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+    const { error } = await supabase.from("listings").update({ status }).eq("id", id);
+    if (error) return alert(error.message);
+    setListings((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, status, statusChangedAt: new Date().toISOString() } : l))
+    );
   }
 
   async function updateRentalStatus(id: string, status: "active" | "paused" | "removed") {
     if (status === "removed" && !confirm("Er du sikker på at du vil fjerne denne annonsen?")) return;
     const supabase = createClient();
-    await supabase.from("rentals").update({ status }).eq("id", id);
-    setRentals((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    const { error } = await supabase.from("rentals").update({ status }).eq("id", id);
+    if (error) return alert(error.message);
+    setRentals((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status, statusChangedAt: new Date().toISOString() } : r))
+    );
   }
 
   if (loading || userId === undefined) {
@@ -225,6 +313,20 @@ export default function DashboardContent() {
   }
 
   const pendingIncoming = incoming.filter((r) => r.status === "pending").length;
+
+  // Active vs. history ("Tidligere annonser")
+  const today = new Date().toISOString().slice(0, 10);
+  const currentListings = listings.filter((l) => l.status === "active");
+  const currentRentals = rentals.filter((r) => r.status === "active" || r.status === "paused");
+  const soldListings = listings
+    .filter((l) => l.status === "sold")
+    .sort((a, b) => (b.statusChangedAt ?? "").localeCompare(a.statusChangedAt ?? ""));
+  const removedListings = listings.filter((l) => l.status === "removed");
+  const removedRentals = rentals.filter((r) => r.status === "removed");
+  const pastRentals = incoming.filter((r) => r.status === "confirmed" && r.end_date < today);
+  const soldTotal = soldListings.reduce((sum, l) => sum + l.price, 0);
+  const hasHistory =
+    soldListings.length + removedListings.length + removedRentals.length + pastRentals.length > 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
@@ -256,6 +358,7 @@ export default function DashboardContent() {
                   <p className="text-xs text-ink/55">
                     {t("dashboard_requested_by")}: {r.requester?.full_name}
                   </p>
+                  {r.message && <p className="text-xs text-ink/70 mt-1 italic">“{r.message}”</p>}
                 </div>
                 {r.status === "pending" ? (
                   <div className="flex gap-2">
@@ -294,7 +397,17 @@ export default function DashboardContent() {
                 <p className="text-sm font-medium text-ink">
                   {r.rentals?.title} — {formatDate(r.start_date)} – {formatDate(r.end_date)}
                 </p>
-                <StatusBadge status={r.status} t={t} />
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={r.status} t={t} />
+                  {r.status === "pending" && (
+                    <button
+                      onClick={() => cancelMyRequest(r.id)}
+                      className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+                    >
+                      {t("dashboard_cancel_request")}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -337,11 +450,11 @@ export default function DashboardContent() {
       </Section>
 
       <Section title={t("dashboard_section_listings")}>
-        {listings.length === 0 ? (
+        {currentListings.length === 0 ? (
           <p className="text-sm text-ink/50">{t("dashboard_no_listings")}</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {listings.map((l) => (
+            {currentListings.map((l) => (
               <div
                 key={l.id}
                 className="bg-cream-card border border-steel-light rounded-lg px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap"
@@ -394,11 +507,11 @@ export default function DashboardContent() {
       </Section>
 
       <Section title={t("dashboard_section_rentals")}>
-        {rentals.length === 0 ? (
+        {currentRentals.length === 0 ? (
           <p className="text-sm text-ink/50">{t("dashboard_no_rentals")}</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {rentals.map((r) => (
+            {currentRentals.map((r) => (
               <div
                 key={r.id}
                 className="bg-cream-card border border-steel-light rounded-lg px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap"
@@ -451,6 +564,72 @@ export default function DashboardContent() {
       </Section>
 
       <MyOtherAds userId={userId} />
+
+      <Section title={t("dashboard_section_history")}>
+        {!hasHistory ? (
+          <p className="text-sm text-ink/50">{t("dashboard_no_history")}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {soldListings.length > 0 && (
+              <p className="text-sm text-ink/70 mb-1">
+                {t("dashboard_history_sold_summary")
+                  .replace("{count}", String(soldListings.length))
+                  .replace("{total}", new Intl.NumberFormat("nb-NO").format(soldTotal))}
+              </p>
+            )}
+
+            {soldListings.map((l) => (
+              <HistoryRow
+                key={`sold-${l.id}`}
+                href={`/kjop-og-selg/${l.id}`}
+                title={l.title}
+                meta={`${new Intl.NumberFormat("nb-NO").format(l.price)} kr${l.statusChangedAt ? " · " + formatFullDate(l.statusChangedAt) : ""}`}
+                badge={t("dashboard_status_sold")}
+                badgeClass="bg-sage/60 text-moss-dark"
+                action={
+                  <button
+                    onClick={() => updateListingStatus(l.id, "active")}
+                    className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                  >
+                    {t("dashboard_reactivate")}
+                  </button>
+                }
+              />
+            ))}
+
+            {pastRentals.map((r) => (
+              <HistoryRow
+                key={`rented-${r.id}`}
+                href={r.rentals ? `/lei/${r.rentals.id}` : undefined}
+                title={r.rentals?.title ?? ""}
+                meta={`${formatFullDate(r.start_date)} – ${formatFullDate(r.end_date)} · ${r.requester?.full_name ?? ""}`}
+                badge={t("dashboard_history_rented_out")}
+                badgeClass="bg-sage/60 text-moss-dark"
+              />
+            ))}
+
+            {removedListings.map((l) => (
+              <HistoryRow
+                key={`rem-${l.id}`}
+                title={l.title}
+                meta={`${new Intl.NumberFormat("nb-NO").format(l.price)} kr${l.statusChangedAt ? " · " + formatFullDate(l.statusChangedAt) : ""}`}
+                badge={t("dashboard_status_removed_item")}
+                badgeClass="bg-barn/10 text-barn"
+              />
+            ))}
+
+            {removedRentals.map((r) => (
+              <HistoryRow
+                key={`remr-${r.id}`}
+                title={r.title}
+                meta={r.statusChangedAt ? formatFullDate(r.statusChangedAt) : ""}
+                badge={t("dashboard_status_removed_item")}
+                badgeClass="bg-barn/10 text-barn"
+              />
+            ))}
+          </div>
+        )}
+      </Section>
 
       <Section title={t("dashboard_section_favorites")}>
         {favorites.length === 0 ? (
