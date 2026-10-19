@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { jobListings, type JobListing } from "@/data/jobs";
+import { type JobListing } from "@/data/jobs";
 
 export async function fetchJobs(): Promise<{ jobs: JobListing[]; isLive: boolean }> {
   try {
@@ -11,7 +11,7 @@ export async function fetchJobs(): Promise<{ jobs: JobListing[]; isLive: boolean
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return { jobs: jobListings, isLive: false };
+      return { jobs: [], isLive: false };
     }
 
     const mapped: JobListing[] = data.map((row) => ({
@@ -28,6 +28,6 @@ export async function fetchJobs(): Promise<{ jobs: JobListing[]; isLive: boolean
 
     return { jobs: mapped, isLive: true };
   } catch {
-    return { jobs: jobListings, isLive: false };
+    return { jobs: [], isLive: false };
   }
 }

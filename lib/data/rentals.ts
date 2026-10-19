@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { rentalListings, type RentalListing } from "@/data/rentals";
+import { type RentalListing } from "@/data/rentals";
 
 export async function fetchRentals(): Promise<{
   rentals: RentalListing[];
@@ -14,7 +14,7 @@ export async function fetchRentals(): Promise<{
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return { rentals: rentalListings, isLive: false };
+      return { rentals: [], isLive: false };
     }
 
     const mapped: RentalListing[] = data.map((row) => ({
@@ -35,6 +35,6 @@ export async function fetchRentals(): Promise<{
 
     return { rentals: mapped, isLive: true };
   } catch {
-    return { rentals: rentalListings, isLive: false };
+    return { rentals: [], isLive: false };
   }
 }

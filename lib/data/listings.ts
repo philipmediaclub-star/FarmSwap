@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { featuredListings, type Listing } from "@/data/listings";
+import { type Listing } from "@/data/listings";
 
 /**
  * Fetches listings from Supabase. Falls back to local demo data if the
@@ -19,7 +19,7 @@ export async function fetchListings(): Promise<{
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return { listings: featuredListings, isLive: false };
+      return { listings: [], isLive: false };
     }
 
     const mapped: Listing[] = data.map((row) => ({
@@ -40,6 +40,6 @@ export async function fetchListings(): Promise<{
 
     return { listings: mapped, isLive: true };
   } catch {
-    return { listings: featuredListings, isLive: false };
+    return { listings: [], isLive: false };
   }
 }
