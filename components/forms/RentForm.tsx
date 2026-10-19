@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import PhotoUploader from "@/components/PhotoUploader";
 import { TextField, TextAreaField, SelectField } from "./SellForm";
 import { geocodeLocation } from "@/lib/geocode";
+import { useCategories } from "@/lib/categories";
 
-const categories = ["Redskap", "Såmaskin", "Tilhenger", "Vintervedlikehold", "Annet"];
 
 export default function RentForm({
   userId,
@@ -22,12 +22,13 @@ export default function RentForm({
   initial?: Record<string, any>;
 }) {
   const { t } = useLanguage();
+  const categories = useCategories("rent");
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [dailyPrice, setDailyPrice] = useState(initial?.daily_price != null ? String(initial.daily_price) : "");
   const [weeklyPrice, setWeeklyPrice] = useState(initial?.weekly_price != null ? String(initial.weekly_price) : "");
-  const [category, setCategory] = useState(initial?.category ?? categories[0]);
+  const [category, setCategory] = useState(initial?.category ?? "");
   const [conditions, setConditions] = useState(initial?.conditions ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
   const [photos, setPhotos] = useState<string[]>(initial?.image_urls ?? []);
@@ -64,10 +65,14 @@ export default function RentForm({
       });
   }, [editId, userId]);
 
+  const categoryValue = category || categories[0];
+  const categoryOptions = categories.includes(categoryValue) ? categories : [categoryValue, ...categories];
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    const chosenCategory = categoryValue;
 
     const supabase = createClient();
     const coords = await geocodeLocation(postalCode.length === 4 ? `${postalCode} ${location}` : location);
@@ -77,7 +82,7 @@ export default function RentForm({
         description,
         daily_price: Number(dailyPrice),
         weekly_price: weeklyPrice ? Number(weeklyPrice) : null,
-        category,
+        category: chosenCategory,
         conditions,
         location,
         latitude: coords?.lat ?? null,
@@ -110,7 +115,7 @@ export default function RentForm({
         <TextField label={t("post_field_weekly_price")} value={weeklyPrice} onChange={setWeeklyPrice} type="number" />
       </div>
 
-      <SelectField label={t("post_field_category")} value={category} onChange={setCategory} options={categories} />
+      <SelectField label={t("post_field_category")} value={categoryValue} onChange={setCategory} options={categoryOptions} />
       <TextAreaField label={t("post_field_conditions")} value={conditions} onChange={setConditions} />
       <div className="grid grid-cols-3 gap-4">
         <TextField label={t("profile_edit_zip")} value={postalCode} onChange={handleZip} />

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { TextField, TextAreaField, SelectField } from "./SellForm";
+import { useCategories } from "@/lib/categories";
 
-const categories = ["Leiekjøring", "Høsting", "Transport", "Snømåking", "Skogsarbeid", "Reparasjon", "Annet"];
 
 export default function ServiceForm({
   userId,
@@ -19,10 +19,11 @@ export default function ServiceForm({
   initial?: Record<string, any>;
 }) {
   const { t } = useLanguage();
+  const categories = useCategories("service");
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [category, setCategory] = useState(initial?.category ?? categories[0]);
+  const [category, setCategory] = useState(initial?.category ?? "");
   const [priceType, setPriceType] = useState<"fixed" | "contact">(initial?.price_type ?? "contact");
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : "");
   const [location, setLocation] = useState(initial?.location ?? "");
@@ -30,16 +31,20 @@ export default function ServiceForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const categoryValue = category || categories[0];
+  const categoryOptions = categories.includes(categoryValue) ? categories : [categoryValue, ...categories];
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    const chosenCategory = categoryValue;
 
     const supabase = createClient();
     const fields = {
       title,
       description,
-      category,
+      category: chosenCategory,
       price_type: priceType,
       price: priceType === "fixed" && price ? Number(price) : null,
       location,
@@ -64,7 +69,7 @@ export default function ServiceForm({
 
       <TextField label={t("post_field_title")} value={title} onChange={setTitle} required />
       <TextAreaField label={t("post_field_description")} value={description} onChange={setDescription} />
-      <SelectField label={t("post_field_category")} value={category} onChange={setCategory} options={categories} />
+      <SelectField label={t("post_field_category")} value={categoryValue} onChange={setCategory} options={categoryOptions} />
 
       <div>
         <span className="text-sm font-medium text-ink/80">{t("post_field_price_type")}</span>

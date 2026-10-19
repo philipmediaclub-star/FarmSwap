@@ -22,7 +22,7 @@ export default async function ProfilePage({
       supabase.from("reviews").select("*, reviewer:profiles!reviews_reviewer_id_fkey(full_name)").eq("reviewee_id", id),
     ]);
 
-  if (!profile) notFound();
+  if (!profile || profile.deleted_at) notFound();
 
   return (
     <>
