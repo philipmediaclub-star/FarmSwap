@@ -16,7 +16,7 @@ export const dictionary = {
     nav_signup: "Opprett konto",
     nav_dashboard: "Dashbord",
     hero_title: "Finn. Lei. Selg. Del.",
-    hero_subtitle: "Landbruksutstyr og tjenester – samlet på ett sted. Landbrukets Finn.no",
+    hero_subtitle: "Landbruksutstyr og tjenester – samlet på ett sted. Landbruket samlet på ett sted!",
     search_placeholder: "Hva leter du etter? F.eks. traktor, tilhenger, plog",
     search_location: "Hvor?",
     search_button: "Søk",
