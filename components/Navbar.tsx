@@ -14,6 +14,7 @@ const links = [
   { key: "nav_services", href: "/tjenester" },
   { key: "nav_jobs", href: "/jobber" },
   { key: "nav_map", href: "/kart" },
+  { key: "nav_about", href: "/om-oss" },
 ] as const;
 
 export default function Navbar() {
