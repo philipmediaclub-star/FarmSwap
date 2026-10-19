@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { isPromotedNow, promotedFirst } from "@/lib/promo";
 import { type JobListing } from "@/data/jobs";
 
 export async function fetchJobs(): Promise<{ jobs: JobListing[]; isLive: boolean }> {
@@ -14,7 +15,8 @@ export async function fetchJobs(): Promise<{ jobs: JobListing[]; isLive: boolean
       return { jobs: [], isLive: false };
     }
 
-    const mapped: JobListing[] = data.map((row) => ({
+    const mapped: JobListing[] = promotedFirst(data).map((row) => ({
+      promoted: isPromotedNow(row.promoted_from, row.promoted_until),
       id: row.id,
       title: row.title,
       description: row.description ?? "",
@@ -24,6 +26,8 @@ export async function fetchJobs(): Promise<{ jobs: JobListing[]; isLive: boolean
       payment: row.payment ?? "",
       posterName: row.profiles?.full_name ?? "Ukjent bruker",
       posterId: row.poster_id,
+      kind: row.kind === "seeking" ? "seeking" : "offer",
+      skills: row.skills ?? "",
     }));
 
     return { jobs: mapped, isLive: true };

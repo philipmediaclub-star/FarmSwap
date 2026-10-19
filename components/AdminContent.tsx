@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
+import { todayISO } from "@/lib/promo";
 
 type Tab = "stats" | "users" | "listings" | "reports" | "categories";
 
@@ -24,6 +25,8 @@ type ItemRow = {
   status: string;
   owner_id: string | null;
   created_at: string | null;
+  promoted_from: string | null;
+  promoted_until: string | null;
   table: "listings" | "rentals" | "services" | "jobs";
 };
 
@@ -73,6 +76,7 @@ export default function AdminContent() {
   const [users, setUsers] = useState<ProfileRow[]>([]);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [reports, setReports] = useState<ReportRow[]>([]);
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
 
   useEffect(() => {
@@ -84,6 +88,9 @@ export default function AdminContent() {
         setLoading(false);
         return;
       }
+
+      // Emails on the admin list (admin_emails table) get admin rights once their address is confirmed.
+      await supabase.rpc("claim_admin");
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -97,7 +104,14 @@ export default function AdminContent() {
       }
       setIsAdmin(true);
 
-      const [{ data: userRows }, { data: listingRows }, { data: rentalRows }, { data: serviceRows }, { data: jobRows }, { data: reportRows }] =
+      const [
+        { data: userRows },
+        { data: listingRows, error: listingErr },
+        { data: rentalRows, error: rentalErr },
+        { data: serviceRows, error: serviceErr },
+        { data: jobRows, error: jobErr },
+        { data: reportRows },
+      ] =
         await Promise.all([
           supabase.from("profiles").select("*").order("created_at", { ascending: false }),
           supabase.from("listings").select("*").order("created_at", { ascending: false }),
@@ -110,6 +124,16 @@ export default function AdminContent() {
             .order("created_at", { ascending: false }),
         ]);
 
+      setLoadErrors(
+        [
+          ["listings", listingErr],
+          ["rentals", rentalErr],
+          ["services", serviceErr],
+          ["jobs", jobErr],
+        ]
+          .filter(([, e]) => e)
+          .map(([n, e]) => `${n}: ${(e as { message: string }).message}`)
+      );
       setUsers(userRows ?? []);
       const toItem = (r: Record<string, any>, table: ItemRow["table"]): ItemRow => ({
         id: r.id,
@@ -117,6 +141,8 @@ export default function AdminContent() {
         status: r.status,
         owner_id: r[OWNER_COLUMN[table]] ?? null,
         created_at: r.created_at ?? null,
+        promoted_from: r.promoted_from ?? null,
+        promoted_until: r.promoted_until ?? null,
         table,
       });
       setItems(
@@ -194,6 +220,38 @@ export default function AdminContent() {
       return;
     }
     setItems((prev) => prev.filter((i) => !(i.id === id && i.table === table)));
+  }
+
+  async function setPromotion(table: ItemRow["table"], id: string, from: string | null, until: string | null) {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from(table)
+      .update({ promoted_from: from, promoted_until: until })
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      alert(error?.message ?? "Kunne ikke lagre (kjør supabase/migrations/009_jobs_promo_admins.sql).");
+      return false;
+    }
+    setItems((prev) =>
+      prev.map((i) => (i.id === id && i.table === table ? { ...i, promoted_from: from, promoted_until: until } : i))
+    );
+    return true;
+  }
+
+  async function toggleAdmin(u: ProfileRow) {
+    if (!window.confirm(u.is_admin ? t("admin_confirm_remove_admin") : t("admin_confirm_make_admin"))) return;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ is_admin: !u.is_admin })
+      .eq("id", u.id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      alert(error?.message ?? "Kunne ikke endre (kjør supabase/migrations/009_jobs_promo_admins.sql).");
+      return;
+    }
+    setUsers((prev) => prev.map((p) => (p.id === u.id ? { ...p, is_admin: !u.is_admin } : p)));
   }
 
   async function updateReport(id: string, status: "reviewed" | "dismissed") {
@@ -349,6 +407,22 @@ export default function AdminContent() {
 
         {tab === "listings" && (
           <div className="flex flex-col gap-2">
+            {loadErrors.length > 0 && (
+              <div className="text-sm text-barn bg-barn/10 rounded-lg p-3">
+                Kunne ikke hente alle annonser:
+                <ul className="list-disc ml-5">
+                  {loadErrors.map((e) => (
+                    <li key={e}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-xs text-ink/50">
+              {(Object.keys(TABLE_LABEL) as Array<keyof typeof TABLE_LABEL>)
+                .map((k) => `${TABLE_LABEL[k]}: ${items.filter((i) => i.table === k).length}`)
+                .join(" · ")}
+              {" — "}viser kun annonser som ligger i databasen (ikke demo-annonser).
+            </p>
             {items.length === 0 && <p className="text-sm text-ink/50">{t("admin_no_listings")}</p>}
             {items.map((i) => {
               const owner = users.find((u) => u.id === i.owner_id);
@@ -364,7 +438,10 @@ export default function AdminContent() {
                       {i.status !== "active" ? ` · ${i.status}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {i.status === "active" && (
+                      <PromoControl item={i} onSave={(from, until) => setPromotion(i.table, i.id, from, until)} t={t} />
+                    )}
                     {i.status === "removed" ? (
                       <span className="text-xs font-semibold bg-barn/10 text-barn px-2.5 py-1 rounded-full">
                         {t("admin_removed_label")}
@@ -407,11 +484,21 @@ export default function AdminContent() {
                     {u.farm_name} {u.location ? `· ${u.location}` : ""}
                   </p>
                 </div>
-                {u.is_admin && (
-                  <span className="text-xs font-semibold bg-sage text-moss-dark px-2.5 py-1 rounded-full">
-                    Admin
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {u.is_admin && (
+                    <span className="text-xs font-semibold bg-sage text-moss-dark px-2.5 py-1 rounded-full">
+                      Admin
+                    </span>
+                  )}
+                  {u.id !== userId && (
+                    <button
+                      onClick={() => toggleAdmin(u)}
+                      className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                    >
+                      {u.is_admin ? t("admin_remove_admin") : t("admin_make_admin")}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -421,6 +508,85 @@ export default function AdminContent() {
           <p className="text-sm text-ink/60 max-w-lg">{t("admin_categories_note")}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function PromoControl({
+  item,
+  onSave,
+  t,
+}: {
+  item: ItemRow;
+  onSave: (from: string | null, until: string | null) => Promise<boolean>;
+  t: (k: never) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState(item.promoted_from ?? todayISO());
+  const [until, setUntil] = useState(item.promoted_until ?? "");
+  const today = todayISO();
+  const has = !!item.promoted_from && !!item.promoted_until;
+  const state = !has
+    ? null
+    : item.promoted_until! < today
+      ? "expired"
+      : item.promoted_from! > today
+        ? "planned"
+        : "active";
+
+  async function save() {
+    if (!from || !until || until < from) {
+      alert(t("admin_promo_dates_error" as never));
+      return;
+    }
+    if (await onSave(from, until)) setOpen(false);
+  }
+
+  if (open) {
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap text-xs">
+        <label className="flex items-center gap-1">
+          {t("admin_promo_from" as never)}
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-steel-light rounded px-1.5 py-1 bg-paper" />
+        </label>
+        <label className="flex items-center gap-1">
+          {t("admin_promo_until" as never)}
+          <input type="date" value={until} min={from} onChange={(e) => setUntil(e.target.value)} className="border border-steel-light rounded px-1.5 py-1 bg-paper" />
+        </label>
+        <button onClick={save} className="font-semibold bg-moss text-paper px-3 py-1.5 rounded-md hover:bg-moss-dark">
+          {t("admin_promo_save" as never)}
+        </button>
+        <button onClick={() => setOpen(false)} className="text-ink/55 hover:underline">
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      {state && (
+        <span
+          className={`font-semibold px-2 py-1 rounded-full ${
+            state === "active" ? "bg-barn text-white" : "bg-steel-light/60 text-ink/60"
+          }`}
+          title={`${item.promoted_from} – ${item.promoted_until}`}
+        >
+          {t((state === "active" ? "admin_promo_active" : state === "planned" ? "admin_promo_planned" : "admin_promo_expired") as never)}{" "}
+          {item.promoted_from} – {item.promoted_until}
+        </span>
+      )}
+      <button
+        onClick={() => setOpen(true)}
+        className="font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+      >
+        {t("admin_promo_button" as never)}
+      </button>
+      {has && (
+        <button onClick={() => onSave(null, null)} className="text-ink/55 hover:underline">
+          {t("admin_promo_remove" as never)}
+        </button>
+      )}
     </div>
   );
 }

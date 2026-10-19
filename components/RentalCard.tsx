@@ -15,7 +15,7 @@ export default function RentalCard({ listing }: { listing: RentalListing }) {
   return (
     <Link
       href={`/lei/${listing.id}`}
-      className="group bg-cream-card border border-steel-light rounded-xl overflow-hidden hover:shadow-md hover:border-moss/50 transition-all flex flex-col"
+      className={`group bg-cream-card border border-steel-light rounded-xl overflow-hidden hover:shadow-md hover:border-moss/50 transition-all flex flex-col ${listing.promoted ? "ring-2 ring-barn/40" : ""}`}
     >
       <div className="relative aspect-[4/3] bg-sage overflow-hidden">
         {listing.imageUrls && listing.imageUrls.length > 0 ? (
@@ -31,6 +31,11 @@ export default function RentalCard({ listing }: { listing: RentalListing }) {
           </div>
         )}
         <FavoriteButton type="rental" id={listing.id} />
+        {listing.promoted && (
+          <span className="absolute top-3 left-3 z-10 font-tag text-[11px] uppercase tracking-wide bg-barn text-white px-2 py-1 rounded">
+            {t("promo_label")}
+          </span>
+        )}
         <span className="absolute bottom-3 left-3 font-tag text-[11px] uppercase tracking-wide bg-paper/90 backdrop-blur px-2 py-1 rounded text-ink/70">
           {listing.category}
         </span>

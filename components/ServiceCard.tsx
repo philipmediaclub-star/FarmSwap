@@ -15,10 +15,17 @@ export default function ServiceCard({ service }: { service: ServiceListing }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <div className="bg-cream-card border border-steel-light rounded-xl p-5 flex flex-col">
-      <span className="font-tag text-[11px] uppercase tracking-wide text-moss-dark">
-        {service.category}
-      </span>
+    <div className={`bg-cream-card border border-steel-light rounded-xl p-5 flex flex-col ${service.promoted ? "ring-2 ring-barn/40" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-tag text-[11px] uppercase tracking-wide text-moss-dark">
+          {service.category}
+        </span>
+        {service.promoted && (
+          <span className="font-tag text-[11px] uppercase tracking-wide bg-barn text-white px-2 py-0.5 rounded">
+            {t("promo_label")}
+          </span>
+        )}
+      </div>
       <h3 className="mt-1.5 font-display font-semibold text-ink">{service.title}</h3>
       <p className="mt-2 text-sm text-ink/65 leading-relaxed flex-1">{service.description}</p>
 

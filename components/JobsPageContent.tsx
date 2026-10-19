@@ -11,6 +11,7 @@ export default function JobsPageContent() {
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "offer" | "seeking">("all");
 
   useEffect(() => {
     fetchJobs().then(({ jobs, isLive }) => {
@@ -19,6 +20,8 @@ export default function JobsPageContent() {
       setLoading(false);
     });
   }, []);
+
+  const shown = jobs.filter((j) => filter === "all" || j.kind === filter);
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
@@ -29,8 +32,28 @@ export default function JobsPageContent() {
       </div>
       <p className="mt-2 text-ink/65">{t("jobs_page_subtitle")}</p>
 
-      <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {jobs.map((job) => (
+      <div className="mt-6 flex gap-2 flex-wrap">
+        {(["all", "offer", "seeking"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`text-sm font-medium px-4 py-2 rounded-full border transition-colors ${
+              filter === f
+                ? "bg-moss text-paper border-moss"
+                : "border-steel-light text-ink/70 hover:border-moss hover:text-moss-dark"
+            }`}
+          >
+            {t(f === "all" ? "jobs_filter_all" : f === "offer" ? "jobs_kind_offer" : "jobs_kind_seeking")}
+          </button>
+        ))}
+      </div>
+
+      {!loading && shown.length === 0 && (
+        <p className="mt-8 text-sm text-ink/55">{t("jobs_none")}</p>
+      )}
+
+      <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {shown.map((job) => (
           <JobCard key={job.id} job={job} />
         ))}
       </div>

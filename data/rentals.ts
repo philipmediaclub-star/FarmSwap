@@ -16,5 +16,6 @@ export type RentalListing = {
   /** coordinates of the (town-level) location, when known */
   lat?: number;
   lng?: number;
+  promoted?: boolean;
 };
 

@@ -114,6 +114,8 @@ export default function ProfileContent({
     payment: (j.payment as string) ?? "",
     posterName: profile.full_name,
     posterId: profile.id,
+    kind: j.kind === "seeking" ? "seeking" : "offer",
+    skills: (j.skills as string) ?? "",
   }));
 
   return (

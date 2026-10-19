@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { isPromotedNow, promotedFirst } from "@/lib/promo";
 import { type RentalListing } from "@/data/rentals";
 
 export async function fetchRentals(): Promise<{
@@ -17,7 +18,8 @@ export async function fetchRentals(): Promise<{
       return { rentals: [], isLive: false };
     }
 
-    const mapped: RentalListing[] = data.map((row) => ({
+    const mapped: RentalListing[] = promotedFirst(data).map((row) => ({
+      promoted: isPromotedNow(row.promoted_from, row.promoted_until),
       id: row.id,
       title: row.title,
       dailyPrice: Number(row.daily_price),

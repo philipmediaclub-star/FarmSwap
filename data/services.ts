@@ -9,5 +9,6 @@ export type ServiceListing = {
   availability: string;
   providerName: string;
   providerId: string | null;
+  promoted?: boolean;
 };
 
