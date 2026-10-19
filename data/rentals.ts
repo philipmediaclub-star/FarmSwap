@@ -13,5 +13,8 @@ export type RentalListing = {
   imageUrls?: string[];
   /** ISO date strings (YYYY-MM-DD) that are already booked */
   unavailableDates: string[];
+  /** coordinates of the (town-level) location, when known */
+  lat?: number;
+  lng?: number;
 };
 

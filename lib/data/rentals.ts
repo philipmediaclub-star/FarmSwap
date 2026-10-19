@@ -31,6 +31,8 @@ export async function fetchRentals(): Promise<{
       imageQuery: row.title,
       imageUrls: row.image_urls ?? [],
       unavailableDates: [],
+      lat: row.latitude != null ? Number(row.latitude) : undefined,
+      lng: row.longitude != null ? Number(row.longitude) : undefined,
     }));
 
     return { rentals: mapped, isLive: true };

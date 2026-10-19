@@ -57,7 +57,7 @@ export default function RentalCard({ listing }: { listing: RentalListing }) {
             <MapPin size={13} />
             {listing.location}
           </span>
-          <span>{listing.distanceKm} km unna</span>
+          {listing.distanceKm > 0 && <span>{listing.distanceKm} km unna</span>}
         </div>
       </div>
     </Link>

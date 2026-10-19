@@ -114,6 +114,10 @@ export default function EditProfileForm() {
       .from("profile_addresses")
       .upsert({ user_id: userId, street: street || null, updated_at: new Date().toISOString() });
 
+    try {
+      localStorage.removeItem("farmswap_origin");
+    } catch {}
+
     setSaving(false);
     if (addrError) {
       setError(addrError.message);

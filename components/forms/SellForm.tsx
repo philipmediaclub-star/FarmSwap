@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
@@ -33,8 +33,38 @@ export default function SellForm({
   const [hours, setHours] = useState(initial?.hours != null ? String(initial.hours) : "");
   const [location, setLocation] = useState(initial?.location ?? "");
   const [photos, setPhotos] = useState<string[]>(initial?.image_urls ?? []);
+  const [postalCode, setPostalCode] = useState("");
+  const [zipError, setZipError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+
+  // Postal code -> city lookup, so the ad gets an accurate position for "equipment nearby".
+  async function handleZip(value: string) {
+    const zip = value.replace(/\D/g, "").slice(0, 4);
+    setPostalCode(zip);
+    setZipError(false);
+    if (zip.length < 4) return;
+    const { data } = await createClient().from("postal_codes").select("city").eq("zip", zip).maybeSingle();
+    if (data?.city) setLocation(data.city);
+    else setZipError(true);
+  }
+
+  // New ads start from the postal code on the user's profile.
+  useEffect(() => {
+    if (editId) return;
+    createClient()
+      .from("profiles")
+      .select("postal_code, city")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.postal_code && data?.city) {
+          setPostalCode(data.postal_code);
+          setLocation(data.city);
+        }
+      });
+  }, [editId, userId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +72,7 @@ export default function SellForm({
     setError(null);
 
     const supabase = createClient();
-    const coords = await geocodeLocation(location);
+    const coords = await geocodeLocation(postalCode.length === 4 ? `${postalCode} ${location}` : location);
 
     const fields = {
         title,
@@ -89,7 +119,13 @@ export default function SellForm({
         <TextField label={t("post_field_hours")} value={hours} onChange={setHours} type="number" />
       </div>
 
-      <TextField label={t("post_field_location")} value={location} onChange={setLocation} required />
+      <div className="grid grid-cols-3 gap-4">
+        <TextField label={t("profile_edit_zip")} value={postalCode} onChange={handleZip} />
+        <div className="col-span-2">
+          <TextField label={t("post_field_location")} value={location} onChange={setLocation} required />
+        </div>
+      </div>
+      {zipError && <p className="-mt-3 text-xs text-barn">{t("profile_zip_unknown")}</p>}
 
       <div>
         <span className="text-sm font-medium text-ink/80">{t("post_field_photos")}</span>

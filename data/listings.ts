@@ -12,5 +12,8 @@ export type Listing = {
   imageQuery: string;
   imageUrls?: string[];
   sellerName: string;
+  /** coordinates of the (town-level) location, when known */
+  lat?: number;
+  lng?: number;
 };
 
