@@ -6,8 +6,8 @@ import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import PhotoUploader from "@/components/PhotoUploader";
 import { geocodeLocation } from "@/lib/geocode";
+import { useCategories } from "@/lib/categories";
 
-const categories = ["Traktor", "Jordbruksutstyr", "Tilhenger", "Skurtresker", "Redskap", "Annet"];
 const conditions = ["Ny", "Som ny", "Godt brukt", "Brukt"];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,11 +23,12 @@ export default function SellForm({
   initial?: Row;
 }) {
   const { t } = useLanguage();
+  const categories = useCategories("sell");
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : "");
-  const [category, setCategory] = useState(initial?.category ?? categories[0]);
+  const [category, setCategory] = useState(initial?.category ?? "");
   const [condition, setCondition] = useState(initial?.condition ?? conditions[2]);
   const [year, setYear] = useState(initial?.year != null ? String(initial.year) : "");
   const [hours, setHours] = useState(initial?.hours != null ? String(initial.hours) : "");
@@ -66,10 +67,14 @@ export default function SellForm({
       });
   }, [editId, userId]);
 
+  const categoryValue = category || categories[0];
+  const categoryOptions = categories.includes(categoryValue) ? categories : [categoryValue, ...categories];
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    const chosenCategory = categoryValue;
 
     const supabase = createClient();
     const coords = await geocodeLocation(postalCode.length === 4 ? `${postalCode} ${location}` : location);
@@ -78,7 +83,7 @@ export default function SellForm({
         title,
         description,
         price: Number(price),
-        category,
+        category: chosenCategory,
         condition,
         year: year ? Number(year) : null,
         hours: hours ? Number(hours) : null,
@@ -110,7 +115,7 @@ export default function SellForm({
       <TextField label={t("post_field_price")} value={price} onChange={setPrice} type="number" required />
 
       <div className="grid grid-cols-2 gap-4">
-        <SelectField label={t("post_field_category")} value={category} onChange={setCategory} options={categories} />
+        <SelectField label={t("post_field_category")} value={categoryValue} onChange={setCategory} options={categoryOptions} />
         <SelectField label={t("post_field_condition")} value={condition} onChange={setCondition} options={conditions} />
       </div>
 

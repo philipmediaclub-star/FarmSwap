@@ -6,6 +6,7 @@ import { Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { todayISO } from "@/lib/promo";
+import AdminCategories from "@/components/AdminCategories";
 
 type Tab = "stats" | "users" | "listings" | "reports" | "categories";
 
@@ -17,6 +18,7 @@ type ProfileRow = {
   verified: boolean;
   is_admin: boolean;
   created_at: string;
+  deleted_at: string | null;
 };
 
 type ItemRow = {
@@ -74,6 +76,7 @@ export default function AdminContent() {
   const [tab, setTab] = useState<Tab>("stats");
 
   const [users, setUsers] = useState<ProfileRow[]>([]);
+  const [emails, setEmails] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ItemRow[]>([]);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
@@ -103,6 +106,13 @@ export default function AdminContent() {
         return;
       }
       setIsAdmin(true);
+
+      // Housekeeping: permanently delete users that were removed more than 6 months ago.
+      await supabase.rpc("purge_expired_users");
+      const { data: emailRows } = await supabase.rpc("admin_user_emails");
+      setEmails(
+        Object.fromEntries(((emailRows ?? []) as { id: string; email: string }[]).map((r) => [r.id, r.email]))
+      );
 
       const [
         { data: userRows },
@@ -237,6 +247,39 @@ export default function AdminContent() {
       prev.map((i) => (i.id === id && i.table === table ? { ...i, promoted_from: from, promoted_until: until } : i))
     );
     return true;
+  }
+
+  async function removeUser(u: ProfileRow) {
+    if (!window.confirm(t("admin_user_remove_confirm" as never).replace("{name}", u.full_name))) return;
+    const { error } = await createClient().rpc("admin_remove_user", { p_user: u.id });
+    if (error) return alert(error.message);
+    const now = new Date().toISOString();
+    setUsers((prev) => prev.map((p) => (p.id === u.id ? { ...p, deleted_at: now } : p)));
+    setItems((prev) => prev.map((i) => (i.owner_id === u.id ? { ...i, status: "removed" } : i)));
+  }
+
+  async function restoreUser(u: ProfileRow) {
+    const { error } = await createClient().rpc("admin_restore_user", { p_user: u.id });
+    if (error) return alert(error.message);
+    setUsers((prev) => prev.map((p) => (p.id === u.id ? { ...p, deleted_at: null } : p)));
+  }
+
+  async function purgeUser(u: ProfileRow) {
+    if (!window.confirm(t("admin_user_purge_confirm" as never).replace("{name}", u.full_name))) return;
+    const { error } = await createClient().rpc("admin_purge_user", { p_user: u.id });
+    if (error) return alert(error.message);
+    setUsers((prev) => prev.filter((p) => p.id !== u.id));
+    setItems((prev) => prev.filter((i) => i.owner_id !== u.id));
+  }
+
+  async function toggleVerified(u: ProfileRow) {
+    const { data, error } = await createClient()
+      .from("profiles")
+      .update({ verified: !u.verified })
+      .eq("id", u.id)
+      .select("id");
+    if (error || !data || data.length === 0) return alert(error?.message ?? t("auth_error_generic"));
+    setUsers((prev) => prev.map((p) => (p.id === u.id ? { ...p, verified: !u.verified } : p)));
   }
 
   async function toggleAdmin(u: ProfileRow) {
@@ -469,44 +512,110 @@ export default function AdminContent() {
 
         {tab === "users" && (
           <div className="flex flex-col gap-2">
-            {users.length === 0 && <p className="text-sm text-ink/50">{t("admin_no_users")}</p>}
-            {users.map((u) => (
-              <div
-                key={u.id}
-                className="bg-cream-card border border-steel-light rounded-lg px-4 py-3 flex items-center justify-between gap-3"
-              >
-                <div>
-                  <p className="text-sm font-medium text-ink flex items-center gap-1.5">
-                    {u.full_name}
-                    {u.verified && <ShieldCheck size={13} className="text-moss-dark" />}
-                  </p>
-                  <p className="text-xs text-ink/50">
-                    {u.farm_name} {u.location ? `· ${u.location}` : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {u.is_admin && (
-                    <span className="text-xs font-semibold bg-sage text-moss-dark px-2.5 py-1 rounded-full">
-                      Admin
-                    </span>
-                  )}
-                  {u.id !== userId && (
+            {users.filter((u) => !u.deleted_at).length === 0 && (
+              <p className="text-sm text-ink/50">{t("admin_no_users")}</p>
+            )}
+            {users
+              .filter((u) => !u.deleted_at)
+              .map((u) => (
+                <div
+                  key={u.id}
+                  className="bg-cream-card border border-steel-light rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink flex items-center gap-1.5">
+                      {u.full_name}
+                      {u.verified && <ShieldCheck size={13} className="text-moss-dark" />}
+                    </p>
+                    <p className="text-xs text-ink/50">
+                      {emails[u.id] ?? ""}
+                      {u.farm_name ? ` · ${u.farm_name}` : ""}
+                      {u.location ? ` · ${u.location}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {u.is_admin && (
+                      <span className="text-xs font-semibold bg-sage text-moss-dark px-2.5 py-1 rounded-full">
+                        Admin
+                      </span>
+                    )}
                     <button
-                      onClick={() => toggleAdmin(u)}
+                      onClick={() => toggleVerified(u)}
                       className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
                     >
-                      {u.is_admin ? t("admin_remove_admin") : t("admin_make_admin")}
+                      {u.verified ? t("admin_unverify" as never) : t("admin_verify" as never)}
                     </button>
-                  )}
+                    {u.id !== userId && (
+                      <>
+                        <button
+                          onClick={() => toggleAdmin(u)}
+                          className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                        >
+                          {u.is_admin ? t("admin_remove_admin") : t("admin_make_admin")}
+                        </button>
+                        {!u.is_admin && (
+                          <button
+                            onClick={() => removeUser(u)}
+                            className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+                          >
+                            {t("admin_user_remove" as never)}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+            {users.some((u) => u.deleted_at) && (
+              <div className="mt-8">
+                <h3 className="font-display font-semibold text-ink text-sm">{t("admin_removed_users_title" as never)}</h3>
+                <p className="text-xs text-ink/50 mt-1 mb-3">{t("admin_removed_users_note" as never)}</p>
+                <div className="flex flex-col gap-2">
+                  {users
+                    .filter((u) => u.deleted_at)
+                    .sort((a, b) => (b.deleted_at ?? "").localeCompare(a.deleted_at ?? ""))
+                    .map((u) => {
+                      const purgeAt = new Date(u.deleted_at as string);
+                      purgeAt.setMonth(purgeAt.getMonth() + 6);
+                      const daysLeft = Math.max(0, Math.ceil((purgeAt.getTime() - Date.now()) / 86400000));
+                      return (
+                        <div
+                          key={u.id}
+                          className="bg-cream-card border border-barn/30 rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-ink">{u.full_name}</p>
+                            <p className="text-xs text-ink/50">
+                              {emails[u.id] ?? ""} · {t("admin_removed_on" as never)}{" "}
+                              {new Date(u.deleted_at as string).toLocaleDateString("nb-NO")} ·{" "}
+                              {t("admin_deleted_in_days" as never).replace("{n}", String(daysLeft))}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => restoreUser(u)}
+                              className="text-xs font-semibold bg-moss text-paper px-3 py-1.5 rounded-md hover:bg-moss-dark transition-colors"
+                            >
+                              {t("admin_user_restore" as never)}
+                            </button>
+                            <button
+                              onClick={() => purgeUser(u)}
+                              className="text-xs font-semibold border border-barn/40 text-barn px-3 py-1.5 rounded-md hover:bg-barn/10 transition-colors"
+                            >
+                              {t("admin_user_purge" as never)}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
 
-        {tab === "categories" && (
-          <p className="text-sm text-ink/60 max-w-lg">{t("admin_categories_note")}</p>
-        )}
+        {tab === "categories" && <AdminCategories />}
       </div>
     </div>
   );
