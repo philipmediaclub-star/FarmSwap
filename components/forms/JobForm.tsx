@@ -6,15 +6,24 @@ import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { TextField, TextAreaField } from "./SellForm";
 
-export default function JobForm({ userId }: { userId: string }) {
+export default function JobForm({
+  userId,
+  editId,
+  initial,
+}: {
+  userId: string;
+  editId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initial?: Record<string, any>;
+}) {
   const { t } = useLanguage();
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [jobDate, setJobDate] = useState("");
-  const [duration, setDuration] = useState("");
-  const [payment, setPayment] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [jobDate, setJobDate] = useState(initial?.job_date ?? "");
+  const [duration, setDuration] = useState(initial?.duration ?? "");
+  const [payment, setPayment] = useState(initial?.payment ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,15 +33,17 @@ export default function JobForm({ userId }: { userId: string }) {
     setError(null);
 
     const supabase = createClient();
-    const { error: insertError } = await supabase.from("jobs").insert({
-      poster_id: userId,
+    const fields = {
       title,
       description,
       location,
       job_date: jobDate || null,
       duration,
       payment,
-    });
+    };
+    const { error: insertError } = editId
+      ? await supabase.from("jobs").update(fields).eq("id", editId)
+      : await supabase.from("jobs").insert({ poster_id: userId, ...fields });
 
     setSubmitting(false);
 
@@ -45,7 +56,7 @@ export default function JobForm({ userId }: { userId: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h1 className="font-display text-2xl font-bold text-ink">{t("post_choose_job")}</h1>
+      <h1 className="font-display text-2xl font-bold text-ink">{editId ? t("edit_title") : t("post_choose_job")}</h1>
 
       <TextField label={t("post_field_title")} value={title} onChange={setTitle} required />
       <TextAreaField label={t("post_field_description")} value={description} onChange={setDescription} />
@@ -65,7 +76,7 @@ export default function JobForm({ userId }: { userId: string }) {
         disabled={submitting}
         className="mt-2 bg-moss hover:bg-moss-dark disabled:opacity-60 text-paper font-semibold py-3 rounded-lg transition-colors"
       >
-        {submitting ? t("post_submitting") : t("post_submit_job")}
+        {submitting ? t("post_submitting") : editId ? t("edit_save") : t("post_submit_job")}
       </button>
     </form>
   );

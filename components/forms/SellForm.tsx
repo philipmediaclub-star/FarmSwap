@@ -10,18 +10,29 @@ import { geocodeLocation } from "@/lib/geocode";
 const categories = ["Traktor", "Jordbruksutstyr", "Tilhenger", "Skurtresker", "Redskap", "Annet"];
 const conditions = ["Ny", "Som ny", "Godt brukt", "Brukt"];
 
-export default function SellForm({ userId }: { userId: string }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
+
+export default function SellForm({
+  userId,
+  editId,
+  initial,
+}: {
+  userId: string;
+  editId?: string;
+  initial?: Row;
+}) {
   const { t } = useLanguage();
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [category, setCategory] = useState(categories[0]);
-  const [condition, setCondition] = useState(conditions[2]);
-  const [year, setYear] = useState("");
-  const [hours, setHours] = useState("");
-  const [location, setLocation] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : "");
+  const [category, setCategory] = useState(initial?.category ?? categories[0]);
+  const [condition, setCondition] = useState(initial?.condition ?? conditions[2]);
+  const [year, setYear] = useState(initial?.year != null ? String(initial.year) : "");
+  const [hours, setHours] = useState(initial?.hours != null ? String(initial.hours) : "");
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [photos, setPhotos] = useState<string[]>(initial?.image_urls ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,10 +44,7 @@ export default function SellForm({ userId }: { userId: string }) {
     const supabase = createClient();
     const coords = await geocodeLocation(location);
 
-    const { data, error: insertError } = await supabase
-      .from("listings")
-      .insert({
-        seller_id: userId,
+    const fields = {
         title,
         description,
         price: Number(price),
@@ -48,9 +56,10 @@ export default function SellForm({ userId }: { userId: string }) {
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
         image_urls: photos,
-      })
-      .select()
-      .single();
+    };
+    const { data, error: insertError } = editId
+      ? await supabase.from("listings").update(fields).eq("id", editId).select().single()
+      : await supabase.from("listings").insert({ seller_id: userId, ...fields }).select().single();
 
     setSubmitting(false);
 
@@ -64,7 +73,7 @@ export default function SellForm({ userId }: { userId: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h1 className="font-display text-2xl font-bold text-ink">{t("post_choose_sell")}</h1>
+      <h1 className="font-display text-2xl font-bold text-ink">{editId ? t("edit_title") : t("post_choose_sell")}</h1>
 
       <TextField label={t("post_field_title")} value={title} onChange={setTitle} required />
       <TextAreaField label={t("post_field_description")} value={description} onChange={setDescription} />
@@ -96,7 +105,7 @@ export default function SellForm({ userId }: { userId: string }) {
         disabled={submitting}
         className="mt-2 bg-moss hover:bg-moss-dark disabled:opacity-60 text-paper font-semibold py-3 rounded-lg transition-colors"
       >
-        {submitting ? t("post_submitting") : t("post_submit_sell")}
+        {submitting ? t("post_submitting") : editId ? t("edit_save") : t("post_submit_sell")}
       </button>
     </form>
   );

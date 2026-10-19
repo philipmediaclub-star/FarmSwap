@@ -8,16 +8,25 @@ import { TextField, TextAreaField, SelectField } from "./SellForm";
 
 const categories = ["Leiekjøring", "Høsting", "Transport", "Snømåking", "Skogsarbeid", "Reparasjon", "Annet"];
 
-export default function ServiceForm({ userId }: { userId: string }) {
+export default function ServiceForm({
+  userId,
+  editId,
+  initial,
+}: {
+  userId: string;
+  editId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initial?: Record<string, any>;
+}) {
   const { t } = useLanguage();
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState(categories[0]);
-  const [priceType, setPriceType] = useState<"fixed" | "contact">("contact");
-  const [price, setPrice] = useState("");
-  const [location, setLocation] = useState("");
-  const [availability, setAvailability] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [category, setCategory] = useState(initial?.category ?? categories[0]);
+  const [priceType, setPriceType] = useState<"fixed" | "contact">(initial?.price_type ?? "contact");
+  const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : "");
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [availability, setAvailability] = useState(initial?.availability ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,8 +36,7 @@ export default function ServiceForm({ userId }: { userId: string }) {
     setError(null);
 
     const supabase = createClient();
-    const { error: insertError } = await supabase.from("services").insert({
-      provider_id: userId,
+    const fields = {
       title,
       description,
       category,
@@ -36,7 +44,10 @@ export default function ServiceForm({ userId }: { userId: string }) {
       price: priceType === "fixed" && price ? Number(price) : null,
       location,
       availability,
-    });
+    };
+    const { error: insertError } = editId
+      ? await supabase.from("services").update(fields).eq("id", editId)
+      : await supabase.from("services").insert({ provider_id: userId, ...fields });
 
     setSubmitting(false);
 
@@ -49,7 +60,7 @@ export default function ServiceForm({ userId }: { userId: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h1 className="font-display text-2xl font-bold text-ink">{t("post_choose_service")}</h1>
+      <h1 className="font-display text-2xl font-bold text-ink">{editId ? t("edit_title") : t("post_choose_service")}</h1>
 
       <TextField label={t("post_field_title")} value={title} onChange={setTitle} required />
       <TextAreaField label={t("post_field_description")} value={description} onChange={setDescription} />
@@ -93,7 +104,7 @@ export default function ServiceForm({ userId }: { userId: string }) {
         disabled={submitting}
         className="mt-2 bg-moss hover:bg-moss-dark disabled:opacity-60 text-paper font-semibold py-3 rounded-lg transition-colors"
       >
-        {submitting ? t("post_submitting") : t("post_submit_service")}
+        {submitting ? t("post_submitting") : editId ? t("edit_save") : t("post_submit_service")}
       </button>
     </form>
   );

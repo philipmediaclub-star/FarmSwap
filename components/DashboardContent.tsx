@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Lock, Heart } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
+import MyOtherAds from "@/components/MyOtherAds";
 import { fetchFavorites, type FavoriteItem } from "@/lib/data/favorites";
 import type { Listing } from "@/data/listings";
 import type { RentalListing } from "@/data/rentals";
@@ -355,6 +356,12 @@ export default function DashboardContent() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <ItemStatusBadge status={l.status} labels={listingStatusLabels(t)} />
+                  <Link
+                    href={`/rediger/selg/${l.id}`}
+                    className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                  >
+                    {t("edit_button")}
+                  </Link>
                   {l.status === "active" && (
                     <button
                       onClick={() => updateListingStatus(l.id, "sold")}
@@ -406,6 +413,12 @@ export default function DashboardContent() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <ItemStatusBadge status={r.status} labels={rentalStatusLabels(t)} />
+                  <Link
+                    href={`/rediger/lei/${r.id}`}
+                    className="text-xs font-semibold border border-steel-light text-ink/70 px-3 py-1.5 rounded-md hover:bg-sage/30 transition-colors"
+                  >
+                    {t("edit_button")}
+                  </Link>
                   {r.status === "active" && (
                     <button
                       onClick={() => updateRentalStatus(r.id, "paused")}
@@ -436,6 +449,8 @@ export default function DashboardContent() {
           </div>
         )}
       </Section>
+
+      <MyOtherAds userId={userId} />
 
       <Section title={t("dashboard_section_favorites")}>
         {favorites.length === 0 ? (

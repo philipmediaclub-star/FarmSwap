@@ -10,17 +10,27 @@ import { geocodeLocation } from "@/lib/geocode";
 
 const categories = ["Redskap", "Såmaskin", "Tilhenger", "Vintervedlikehold", "Annet"];
 
-export default function RentForm({ userId }: { userId: string }) {
+export default function RentForm({
+  userId,
+  editId,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initial,
+}: {
+  userId: string;
+  editId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initial?: Record<string, any>;
+}) {
   const { t } = useLanguage();
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [dailyPrice, setDailyPrice] = useState("");
-  const [weeklyPrice, setWeeklyPrice] = useState("");
-  const [category, setCategory] = useState(categories[0]);
-  const [conditions, setConditions] = useState("");
-  const [location, setLocation] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [dailyPrice, setDailyPrice] = useState(initial?.daily_price != null ? String(initial.daily_price) : "");
+  const [weeklyPrice, setWeeklyPrice] = useState(initial?.weekly_price != null ? String(initial.weekly_price) : "");
+  const [category, setCategory] = useState(initial?.category ?? categories[0]);
+  const [conditions, setConditions] = useState(initial?.conditions ?? "");
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [photos, setPhotos] = useState<string[]>(initial?.image_urls ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,10 +42,7 @@ export default function RentForm({ userId }: { userId: string }) {
     const supabase = createClient();
     const coords = await geocodeLocation(location);
 
-    const { data, error: insertError } = await supabase
-      .from("rentals")
-      .insert({
-        owner_id: userId,
+    const fields = {
         title,
         description,
         daily_price: Number(dailyPrice),
@@ -46,9 +53,10 @@ export default function RentForm({ userId }: { userId: string }) {
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
         image_urls: photos,
-      })
-      .select()
-      .single();
+    };
+    const { data, error: insertError } = editId
+      ? await supabase.from("rentals").update(fields).eq("id", editId).select().single()
+      : await supabase.from("rentals").insert({ owner_id: userId, ...fields }).select().single();
 
     setSubmitting(false);
 
@@ -62,7 +70,7 @@ export default function RentForm({ userId }: { userId: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h1 className="font-display text-2xl font-bold text-ink">{t("post_choose_rent")}</h1>
+      <h1 className="font-display text-2xl font-bold text-ink">{editId ? t("edit_title") : t("post_choose_rent")}</h1>
 
       <TextField label={t("post_field_title")} value={title} onChange={setTitle} required />
       <TextAreaField label={t("post_field_description")} value={description} onChange={setDescription} />
@@ -90,7 +98,7 @@ export default function RentForm({ userId }: { userId: string }) {
         disabled={submitting}
         className="mt-2 bg-moss hover:bg-moss-dark disabled:opacity-60 text-paper font-semibold py-3 rounded-lg transition-colors"
       >
-        {submitting ? t("post_submitting") : t("post_submit_rent")}
+        {submitting ? t("post_submitting") : editId ? t("edit_save") : t("post_submit_rent")}
       </button>
     </form>
   );
