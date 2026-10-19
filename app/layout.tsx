@@ -9,6 +9,7 @@ import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n";
+import AuthRedirect from "@/components/AuthRedirect";
 
 export const metadata: Metadata = {
   title: "FarmSwap — Finn. Lei. Selg. Del.",
@@ -20,7 +21,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="no" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <AuthRedirect />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

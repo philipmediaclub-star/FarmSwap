@@ -14,11 +14,14 @@ export default function Hero() {
   const popularTerms = dictionary[lang].popular_terms;
 
   function goToTerm(term: string) {
-    router.push(`/kjop-og-selg?q=${encodeURIComponent(term)}`);
+    router.push(`/sok?q=${encodeURIComponent(term)}`);
   }
 
   function handleSubmit() {
-    router.push(`/kjop-og-selg?q=${encodeURIComponent(query)}`);
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (location.trim()) params.set("sted", location.trim());
+    router.push(`/sok${params.toString() ? `?${params}` : ""}`);
   }
 
   return (
