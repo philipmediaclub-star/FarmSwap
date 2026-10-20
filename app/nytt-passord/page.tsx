@@ -25,11 +25,26 @@ export default function NewPasswordPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || session) setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => {
+    // Link format from the email template: /nytt-passord?token_hash=...&type=recovery
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const run = async () => {
+      if (tokenHash) {
+        const { error: otpErr } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "recovery",
+        });
+        if (!otpErr) {
+          setReady(true);
+          window.history.replaceState(null, "", "/nytt-passord");
+        }
+      }
+      const { data } = await supabase.auth.getSession();
       if (data.session) setReady(true);
       setChecked(true);
-    });
-    const timer = setTimeout(() => setChecked(true), 1500);
+    };
+    run();
+    const timer = setTimeout(() => setChecked(true), 4000);
     return () => {
       sub.subscription.unsubscribe();
       clearTimeout(timer);
