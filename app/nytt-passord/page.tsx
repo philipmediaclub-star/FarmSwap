@@ -18,6 +18,7 @@ export default function NewPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
 
   // The reset link logs the user in with a temporary recovery session.
   useEffect(() => {
@@ -29,6 +30,8 @@ export default function NewPasswordPage() {
     const params = new URLSearchParams(window.location.search);
     const tokenHash = params.get("token_hash");
     const run = async () => {
+      if (tokenHash && (window as unknown as { __pwVerify?: string }).__pwVerify === tokenHash) return;
+      if (tokenHash) (window as unknown as { __pwVerify?: string }).__pwVerify = tokenHash;
       if (tokenHash) {
         const { error: otpErr } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
@@ -37,7 +40,13 @@ export default function NewPasswordPage() {
         if (!otpErr) {
           setReady(true);
           window.history.replaceState(null, "", "/nytt-passord");
+        } else {
+          setDetail(`${otpErr.message}${otpErr.status ? ` (${otpErr.status})` : ""}`);
         }
+      } else {
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        const hashErr = hash.get("error_description") || params.get("error_description");
+        if (hashErr) setDetail(hashErr);
       }
       const { data } = await supabase.auth.getSession();
       if (data.session) setReady(true);
@@ -88,6 +97,7 @@ export default function NewPasswordPage() {
           ) : checked && !ready ? (
             <div className="mt-8">
               <p className="text-sm text-barn">{t("auth_reset_invalid")}</p>
+              {detail && <p className="mt-1 text-xs text-ink/50">Detaljer: {detail}</p>}
               <Link href="/glemt-passord" className="text-sm text-moss-dark font-semibold hover:underline">
                 {t("auth_forgot_submit")}
               </Link>
