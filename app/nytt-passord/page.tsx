@@ -20,39 +20,33 @@ export default function NewPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
 
-  // The reset link logs the user in with a temporary recovery session.
+  // Two link styles are supported:
+  //  1) /nytt-passord?token_hash=...&type=recovery  (email template link) - the token is only
+  //     used when the user presses "save", so email scanners that open links can't use it up.
+  //  2) Supabase's own link, which logs the user in with a temporary recovery session.
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
+
   useEffect(() => {
     const supabase = createClient();
+    const params = new URLSearchParams(window.location.search);
+    const th = params.get("token_hash");
+    if (th) {
+      setTokenHash(th);
+      setReady(true);
+      setChecked(true);
+      return;
+    }
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const hashErr = hash.get("error_description") || params.get("error_description");
+    if (hashErr) setDetail(hashErr);
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || session) setReady(true);
     });
-    // Link format from the email template: /nytt-passord?token_hash=...&type=recovery
-    const params = new URLSearchParams(window.location.search);
-    const tokenHash = params.get("token_hash");
-    const run = async () => {
-      if (tokenHash && (window as unknown as { __pwVerify?: string }).__pwVerify === tokenHash) return;
-      if (tokenHash) (window as unknown as { __pwVerify?: string }).__pwVerify = tokenHash;
-      if (tokenHash) {
-        const { error: otpErr } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: "recovery",
-        });
-        if (!otpErr) {
-          setReady(true);
-          window.history.replaceState(null, "", "/nytt-passord");
-        } else {
-          setDetail(`${otpErr.message}${otpErr.status ? ` (${otpErr.status})` : ""}`);
-        }
-      } else {
-        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-        const hashErr = hash.get("error_description") || params.get("error_description");
-        if (hashErr) setDetail(hashErr);
-      }
-      const { data } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
       setChecked(true);
-    };
-    run();
+    });
     const timer = setTimeout(() => setChecked(true), 4000);
     return () => {
       sub.subscription.unsubscribe();
@@ -67,6 +61,23 @@ export default function NewPasswordPage() {
     if (password !== confirm) return setError(t("auth_reset_mismatch"));
     setLoading(true);
     const supabase = createClient();
+
+    if (tokenHash) {
+      const { error: otpErr } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: "recovery",
+      });
+      if (otpErr) {
+        setLoading(false);
+        setTokenHash(null);
+        setReady(false);
+        setDetail(`${otpErr.message}${otpErr.status ? ` (${otpErr.status})` : ""}`);
+        return;
+      }
+      setTokenHash(null);
+      window.history.replaceState(null, "", "/nytt-passord");
+    }
+
     const { error: err } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (err) {
