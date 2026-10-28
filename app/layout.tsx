@@ -10,6 +10,7 @@ import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n";
 import AuthRedirect from "@/components/AuthRedirect";
+import PageViewTracker from "@/components/PageViewTracker";
 
 export const metadata: Metadata = {
   title: "FarmSwap — Finn. Lei. Selg. Del.",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <LanguageProvider>
           <AuthRedirect />
+          <PageViewTracker />
           {children}
         </LanguageProvider>
       </body>

@@ -7,8 +7,9 @@ import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { todayISO } from "@/lib/promo";
 import AdminCategories from "@/components/AdminCategories";
+import AdminTraffic from "@/components/AdminTraffic";
 
-type Tab = "stats" | "users" | "listings" | "reports" | "categories";
+type Tab = "stats" | "traffic" | "users" | "listings" | "reports" | "categories";
 
 type ProfileRow = {
   id: string;
@@ -345,7 +346,7 @@ export default function AdminContent() {
       <h1 className="font-display text-3xl font-bold text-ink">{t("admin_title")}</h1>
 
       <div className="mt-6 flex gap-2 border-b border-steel-light overflow-x-auto">
-        {(["stats", "reports", "listings", "users", "categories"] as Tab[]).map((tKey) => (
+        {(["stats", "traffic", "reports", "listings", "users", "categories"] as Tab[]).map((tKey) => (
           <button
             key={tKey}
             onClick={() => setTab(tKey)}
@@ -616,6 +617,7 @@ export default function AdminContent() {
         )}
 
         {tab === "categories" && <AdminCategories />}
+        {tab === "traffic" && <AdminTraffic />}
       </div>
     </div>
   );
