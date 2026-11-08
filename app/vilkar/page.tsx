@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
+
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+
+export const metadata: Metadata = {
+  title: "Vilkår",
+  description: "Vilkår for bruk av FarmSwap.",
+  alternates: { canonical: "/vilkar" },
+  openGraph: { title: "Vilkår", description: "Vilkår for bruk av FarmSwap.", url: "/vilkar" },
+};
 
 export default function TermsPage() {
   return (

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site-url";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -13,9 +14,29 @@ import AuthRedirect from "@/components/AuthRedirect";
 import PageViewTracker from "@/components/PageViewTracker";
 
 export const metadata: Metadata = {
-  title: "FarmSwap — Finn. Lei. Selg. Del.",
-  description:
-    "Landbruksutstyr og tjenester – samlet på ett sted. Landbrukets Finn.no",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "FarmSwap – Kjøp, selg og lei landbruksutstyr",
+    template: "%s | FarmSwap",
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "nb_NO",
+    url: "/",
+    title: "FarmSwap – Kjøp, selg og lei landbruksutstyr",
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/logo.png", alt: "FarmSwap" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "FarmSwap – Kjøp, selg og lei landbruksutstyr",
+    description: SITE_DESCRIPTION,
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
