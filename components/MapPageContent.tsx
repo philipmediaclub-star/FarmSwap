@@ -21,7 +21,7 @@ export default function MapPageContent() {
       const [{ data: listingRows }, { data: rentalRows }] = await Promise.all([
         supabase
           .from("listings")
-          .select("id, title, price, location, latitude, longitude")
+          .select("id, title, price, price_unit, location, latitude, longitude")
           .eq("status", "active"),
         supabase
           .from("rentals")
@@ -38,7 +38,7 @@ export default function MapPageContent() {
               id: `sell-${l.id}`,
               title: l.title,
               type: "sell" as const,
-              priceLabel: formatNOK(Number(l.price)),
+              priceLabel: formatNOK(Number(l.price)) + (l.price_unit && l.price_unit !== "stk" ? ` / ${l.price_unit}` : ""),
               location: l.location,
               lat: coords.lat,
               lng: coords.lng,

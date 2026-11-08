@@ -28,6 +28,7 @@ export async function fetchListings(): Promise<{
       id: row.id,
       title: row.title,
       price: Number(row.price),
+      priceUnit: row.price_unit ?? "stk",
       currency: "NOK",
       category: row.category,
       location: row.location,

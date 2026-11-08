@@ -49,6 +49,9 @@ export default function ListingCard({ listing }: { listing: Listing }) {
         </h3>
         <p className="font-tag text-lg font-semibold text-moss-dark mt-1">
           {formatNOK(listing.price)}
+          {listing.priceUnit && listing.priceUnit !== "stk" && (
+            <span className="text-xs font-body text-ink/50"> / {listing.priceUnit}</span>
+          )}
           {listing.category === "Utleie" && (
             <span className="text-xs font-body text-ink/50"> /dag</span>
           )}

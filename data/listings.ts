@@ -2,6 +2,8 @@ export type Listing = {
   id: string;
   title: string;
   price: number;
+  /** what the price is per: "stk" (default), "sekk", "favn", "m³" ... */
+  priceUnit?: string;
   currency: "NOK";
   category: string;
   location: string;

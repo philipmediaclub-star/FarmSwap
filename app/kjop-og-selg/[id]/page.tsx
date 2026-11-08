@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site-url";
 import { truncate, jsonLd } from "@/lib/seo";
+import { unitSuffix } from "@/lib/units";
 
 export async function generateMetadata({
   params,
@@ -16,14 +17,14 @@ export async function generateMetadata({
   const supabase = await createClient();
   const { data } = await supabase
     .from("listings")
-    .select("title, price, category, location, description, image_urls")
+    .select("title, price, price_unit, category, location, description, image_urls")
     .eq("id", id)
     .single();
   if (!data) return { title: "Annonse ikke funnet", robots: { index: false } };
 
   const title = `${data.title} – ${data.category} til salgs${data.location ? ` i ${data.location}` : ""}`;
   const description = truncate(
-    `${data.title} for ${Number(data.price).toLocaleString("nb-NO")} kr. ${data.description ?? ""}`
+    `${data.title} for ${Number(data.price).toLocaleString("nb-NO")} kr${unitSuffix(data.price_unit)}. ${data.description ?? ""}`
   );
   const image = data.image_urls?.[0];
   return {
@@ -57,6 +58,7 @@ export default async function ListingDetailPage({
         id: data.id,
         title: data.title,
         price: Number(data.price),
+        priceUnit: data.price_unit ?? "stk",
         currency: "NOK",
         category: data.category,
         location: data.location,

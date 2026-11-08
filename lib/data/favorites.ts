@@ -36,7 +36,7 @@ export async function fetchFavorites(userId: string): Promise<FavoriteItem[]> {
         type: "listing",
         id: l.id,
         title: l.title,
-        subtitle: formatNOK(Number(l.price)),
+        subtitle: formatNOK(Number(l.price)) + (l.price_unit && l.price_unit !== "stk" ? ` / ${l.price_unit}` : ""),
         href: `/kjop-og-selg/${l.id}`,
       });
     }

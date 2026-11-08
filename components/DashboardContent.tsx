@@ -113,6 +113,7 @@ export default function DashboardContent() {
         id: l.id,
         title: l.title,
         price: Number(l.price),
+        priceUnit: l.price_unit ?? "stk",
         currency: "NOK",
         category: l.category,
         location: l.location,

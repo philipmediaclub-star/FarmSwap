@@ -131,6 +131,9 @@ export default function ListingDetailContent({ listing }: { listing: FullListing
           <div className="sticky top-24 bg-cream-card border border-steel-light rounded-xl p-5">
             <p className="font-tag text-2xl font-bold text-moss-dark">
               {formatNOK(listing.price)}
+              {listing.priceUnit && listing.priceUnit !== "stk" && (
+                <span className="text-base font-body font-normal text-ink/55"> / {listing.priceUnit}</span>
+              )}
             </p>
             {listing.sellerName && (
               listing.sellerId ? (

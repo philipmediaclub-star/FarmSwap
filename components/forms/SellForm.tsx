@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import PhotoUploader from "@/components/PhotoUploader";
 import { geocodeLocation } from "@/lib/geocode";
 import { useCategories } from "@/lib/categories";
+import { PRICE_UNITS } from "@/lib/units";
 
 const conditions = ["Ny", "Som ny", "Godt brukt", "Brukt"];
 
@@ -28,6 +29,7 @@ export default function SellForm({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : "");
+  const [priceUnit, setPriceUnit] = useState<string>(initial?.price_unit ?? "stk");
   const [category, setCategory] = useState(initial?.category ?? "");
   const [condition, setCondition] = useState(initial?.condition ?? conditions[2]);
   const [year, setYear] = useState(initial?.year != null ? String(initial.year) : "");
@@ -67,6 +69,7 @@ export default function SellForm({
       });
   }, [editId, userId]);
 
+  const single = priceUnit === "stk";
   const categoryValue = category || categories[0];
   const categoryOptions = categories.includes(categoryValue) ? categories : [categoryValue, ...categories];
 
@@ -83,10 +86,12 @@ export default function SellForm({
         title,
         description,
         price: Number(price),
+        price_unit: priceUnit,
         category: chosenCategory,
-        condition,
-        year: year ? Number(year) : null,
-        hours: hours ? Number(hours) : null,
+        // condition / year / hours only make sense for single items
+        condition: single ? condition : null,
+        year: single && year ? Number(year) : null,
+        hours: single && hours ? Number(hours) : null,
         location,
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
@@ -112,17 +117,23 @@ export default function SellForm({
 
       <TextField label={t("post_field_title")} value={title} onChange={setTitle} required />
       <TextAreaField label={t("post_field_description")} value={description} onChange={setDescription} />
-      <TextField label={t("post_field_price")} value={price} onChange={setPrice} type="number" required />
+      <SelectField label={t("post_field_category")} value={categoryValue} onChange={setCategory} options={categoryOptions} />
 
       <div className="grid grid-cols-2 gap-4">
-        <SelectField label={t("post_field_category")} value={categoryValue} onChange={setCategory} options={categoryOptions} />
-        <SelectField label={t("post_field_condition")} value={condition} onChange={setCondition} options={conditions} />
+        <TextField label={t("post_field_price")} value={price} onChange={setPrice} type="number" required />
+        <SelectField label={t("post_field_price_unit")} value={priceUnit} onChange={setPriceUnit} options={PRICE_UNITS} />
       </div>
+      <p className="-mt-2 text-xs text-ink/50">{t("post_price_unit_hint")}</p>
 
-      <div className="grid grid-cols-2 gap-4">
-        <TextField label={t("post_field_year")} value={year} onChange={setYear} type="number" />
-        <TextField label={t("post_field_hours")} value={hours} onChange={setHours} type="number" />
-      </div>
+      {single && (
+        <>
+          <SelectField label={t("post_field_condition")} value={condition} onChange={setCondition} options={conditions} />
+          <div className="grid grid-cols-2 gap-4">
+            <TextField label={t("post_field_year")} value={year} onChange={setYear} type="number" />
+            <TextField label={t("post_field_hours")} value={hours} onChange={setHours} type="number" />
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         <TextField label={t("profile_edit_zip")} value={postalCode} onChange={handleZip} />

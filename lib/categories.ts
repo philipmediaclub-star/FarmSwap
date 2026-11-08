@@ -7,7 +7,12 @@ export type CategorySection = "sell" | "rent" | "service";
 
 /** Used until the list has loaded, and if the categories table is empty or missing. */
 export const DEFAULT_CATEGORIES: Record<CategorySection, string[]> = {
-  sell: ["Traktor", "Jordbruksutstyr", "Tilhenger", "Skurtresker", "Redskap", "Annet"],
+  sell: [
+    "Traktor", "Jordbruksutstyr", "Tilhenger", "Skurtresker", "Redskap",
+    "Ved og brensel", "Høy, halm og strø", "Fôr og kraftfôr", "Frø, planter og settepoteter",
+    "Gjødsel og jord", "Dyr", "Mat og råvarer fra gården", "Tømmer og trevirke",
+    "Gjerde og bygg", "Verktøy og småutstyr", "Reservedeler", "Bil, ATV og kjøretøy", "Annet",
+  ],
   rent: ["Redskap", "Såmaskin", "Tilhenger", "Vintervedlikehold", "Annet"],
   service: ["Leiekjøring", "Høsting", "Transport", "Snømåking", "Skogsarbeid", "Reparasjon", "Annet"],
 };

@@ -65,6 +65,7 @@ export default function ProfileContent({
     id: l.id as string,
     title: l.title as string,
     price: Number(l.price),
+    priceUnit: (l.price_unit as string) ?? "stk",
     currency: "NOK",
     category: l.category as string,
     location: l.location as string,
